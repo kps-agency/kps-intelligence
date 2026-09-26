@@ -152,4 +152,8 @@ export enum EventType {
   MISSION_STATUS_CHANGED = "MISSION_STATUS_CHANGED",
   MISSION_BLOCKED = "MISSION_BLOCKED",
   REQUEST_CLOSED = "REQUEST_CLOSED",
+  // Ajout hors catalogue section 4 : requis par la gestion d'erreur IA
+  // (prompt.md section 68 — une panne Claude doit produire un événement
+  // visible plutôt qu'être avalée silencieusement).
+  AI_ANALYSIS_FAILED = "AI_ANALYSIS_FAILED",
 }

@@ -128,20 +128,55 @@ axes indépendants, association polymorphe conservée pour `documents`,
 référence `KPS-{AAAA}-{NNNNN}` via une table compteur par année
 (`request_reference_counters`) plutôt qu'une séquence Postgres globale.
 
-Prochaine étape : **Phase 2 — Supabase & migrations** (checkpoint externe
-#1 : créer le projet Supabase avec l'utilisateur — voir ci-dessous).
+**Phase 2 — Supabase & migrations : terminée.**
 
-**Checkpoints externes en attente** (aucun n'est requis avant la Phase 2
-au plus tôt) :
-1. Compte Supabase — requis avant Phase 2.
-2. Clé API Anthropic — requise avant Phase 8.
-3. Provider email — requis avant Phase 11.
-4. Compte Meta WhatsApp Business Cloud API — requis avant Phase 12.
+Checkpoint externe #1 franchi : projet Supabase réel créé par
+l'utilisateur (`zfzwqeocpeaodlsjnjkg`). Le projet utilise le **nouveau
+système de clés API Supabase** (`sb_publishable_...` / `sb_secret_...` +
+endpoint JWKS) plutôt que l'ancien anon/service_role JWT — voir
+`.env.example` et `SECURITY.md` pour la correspondance exacte.
+
+Incident traité en cours de route : l'utilisateur a par deux fois collé
+de vraies valeurs (clés API, mot de passe DB, `JWT_SECRET`) directement
+dans `.env.example` (fichier suivi par git) au lieu de `.env` (ignoré).
+Corrigé les deux fois avant tout commit — aucun secret n'est jamais entré
+dans l'historique git. Point d'attention permanent pour la suite : **ne
+jamais écrire de valeur réelle dans un fichier `*.example`**.
+
+37 tables créées et migrées avec succès sur l'instance réelle via un
+migration runner maison (`supabase/migrate.mjs`, `pnpm db:migrate`) —
+choisi plutôt que `supabase db push` pour éviter toute dépendance à une
+session CLI authentifiée (OAuth) en CI/déploiement, tout en gardant le
+format de fichiers (`supabase/migrations/*.sql` horodatés) compatible
+avec le CLI Supabase si on veut l'utiliser plus tard pour le développement
+local (`supabase start`). Suivi des migrations appliquées dans une table
+`schema_migrations` (idempotent, rejouable sans erreur).
+
+Vérifié concrètement (pas seulement "ça compile") :
+- RLS activé sur les 37 tables (deny-all) ; testé en conditions réelles :
+  une requête REST avec la clé `SUPABASE_PUBLISHABLE_KEY` sur `/rest/v1/roles`
+  renvoie `200 []` — la requête est acceptée mais RLS bloque toute lecture,
+  bien que 8 lignes existent réellement.
+- `generate_request_reference()` génère des références séquentielles
+  correctes (`KPS-2026-00001`, `KPS-2026-00002`, ...).
+- Seed structurel : 8 rôles, 10 services (5 `ACTIVE`, 5 `COMING_SOON`).
+
+Prochaine étape : **Phase 3 — Auth & RBAC**. Point d'architecture à
+anticiper : la vérification JWT côté `apps/api` se fera via
+`SUPABASE_JWKS_URL` (clés asymétriques), pas via un secret partagé — à
+documenter précisément dans `SECURITY.md` en Phase 3.
+
+**Checkpoints externes** :
+1. ✅ Compte Supabase — fait (Phase 2).
+2. ⏳ Clé API Anthropic — requise avant Phase 8.
+3. ⏳ Provider email — requis avant Phase 11.
+4. ⏳ Compte Meta WhatsApp Business Cloud API — requis avant Phase 12.
 
 ## Commandes utiles
 
 ```bash
 pnpm install
+pnpm db:migrate    # applique les migrations SQL en attente (supabase/migrations/*.sql)
 pnpm dev            # web + api en parallèle
 pnpm lint
 pnpm typecheck

@@ -7,15 +7,16 @@ phase concernée, audit final en Phase 25.
 
 Décision (voir `ARCHITECTURE.md` §1 et `DATABASE.md` §16) : le frontend ne
 parle jamais directement à Supabase pour les données métier. Tout passe
-par `apps/api`, qui seul détient la `SUPABASE_SERVICE_ROLE_KEY`. RLS est
-activé partout en base comme filet de sécurité, politique deny-all pour
-`anon`/`authenticated`.
+par `apps/api`, qui seul détient la `SUPABASE_SECRET_KEY` (nouveau système
+de clés API Supabase — équivalent fonctionnel de l'ancienne "service role
+key", bypass RLS). RLS est activé partout en base comme filet de
+sécurité, politique deny-all pour `anon`/`authenticated`.
 
 ## 2. Secrets — jamais exposés côté navigateur
 
 ```text
 ANTHROPIC_API_KEY
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SECRET_KEY
 WHATSAPP_ACCESS_TOKEN
 SMTP_PASSWORD / EMAIL_PASSWORD
 JWT_SECRET
@@ -23,9 +24,9 @@ JWT_SECRET
 
 Ces variables ne doivent jamais apparaître dans `apps/web` (ni en
 `NEXT_PUBLIC_*`, ni build-time inline). Seules `SUPABASE_URL` et
-`SUPABASE_ANON_KEY` sont acceptables côté frontend (utilisées uniquement
-pour l'authentification via Supabase Auth SDK, pas pour les données
-métier).
+`SUPABASE_PUBLISHABLE_KEY` sont acceptables côté frontend (utilisées
+uniquement pour l'authentification via Supabase Auth SDK, pas pour les
+données métier).
 
 ## 3. Authentification & RBAC
 
