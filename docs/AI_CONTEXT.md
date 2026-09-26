@@ -103,7 +103,7 @@ Créé :
   section 73 + JWT/rate-limit).
 - `.gitignore`, `README.md`, `docs/AI_CONTEXT.md` (ce fichier).
 
-**Phase 1 — Documentation d'architecture : en attente de validation.**
+**Phase 1 — Documentation d'architecture : terminée.**
 
 Créé : `docs/ARCHITECTURE.md` (archi globale, frontend, backend, event bus,
 IA, multi-canal, déploiement), `docs/DATABASE.md` (schéma PostgreSQL
@@ -121,15 +121,15 @@ en base comme filet de sécurité (deny-all pour anon/authenticated). La
 page publique de qualification passe aussi par l'API, pas par un accès
 Supabase direct côté navigateur.
 
-**Checkpoint utilisateur requis avant la Phase 2** : valider le schéma
-`docs/DATABASE.md` et les 4 points ouverts listés dans sa section 17
-(devise par défaut, distinction priority/urgency, association polymorphe
-sans FK pour `documents`, format de la référence `KPS-YYYY-NNNNN`) avant
-d'écrire les migrations SQL — un changement de schéma après migration est
-bien plus coûteux qu'avant.
+Les 4 points ouverts de la section 17 ont été tranchés par défaut
+(l'utilisateur n'a pas eu d'avis spécifique) : devise déduite du pays du
+client (pas de défaut fixe), `priority`/`urgency` conservés comme deux
+axes indépendants, association polymorphe conservée pour `documents`,
+référence `KPS-{AAAA}-{NNNNN}` via une table compteur par année
+(`request_reference_counters`) plutôt qu'une séquence Postgres globale.
 
-Prochaine étape après validation : **Phase 2 — Supabase & migrations**
-(checkpoint externe : créer le projet Supabase avec l'utilisateur).
+Prochaine étape : **Phase 2 — Supabase & migrations** (checkpoint externe
+#1 : créer le projet Supabase avec l'utilisateur — voir ci-dessous).
 
 **Checkpoints externes en attente** (aucun n'est requis avant la Phase 2
 au plus tôt) :

@@ -165,9 +165,11 @@ requests
   index (source)
 ```
 
-La référence (`KPS-2026-00482`) est générée par une séquence par année
-(fonction Postgres `generate_request_reference()`), jamais côté
-application (évite les doublons en cas de double-soumission concurrente).
+La référence (`KPS-2026-00482`) est générée par la fonction Postgres
+`generate_request_reference()` adossée à la table compteur
+`request_reference_counters` (format et rationale : voir §17, point 4),
+jamais côté application (évite les doublons en cas de double-soumission
+concurrente).
 
 ---
 
@@ -641,15 +643,42 @@ politique par défaut **deny-all** pour les rôles `anon` et `authenticated`
 direct, y compris authentifié. Seules les tables Supabase Auth propres
 (`auth.users`) suivent le comportement standard de Supabase.
 
-## 17. Points à valider avec l'utilisateur avant migrations (Phase 2)
+## 17. Décisions arrêtées (points ouverts tranchés en l'absence d'avis contraire)
 
-1. Devise par défaut `CHF` pour `opportunities`/`quotes`/`missions` — à
-   confirmer (KPS opère aussi en France/Canada/Afrique).
-2. `priority` et `urgency` sont deux colonnes distinctes sur `requests`
-   dans le prompt (section 16) mais partagent le même enum
-   `priority_level` — à confirmer que ce ne sont pas deux échelles
-   différentes.
-3. `documents.entity_type/entity_id` sans FK native : accepté comme
-   compromis (association polymorphe), à confirmer.
-4. Séquence de référence (`KPS-2026-00482`) : format exact à valider
-   (padding, remise à zéro annuelle).
+1. **Devise** : pas de défaut fixe en base. `currency` reste une colonne
+   par ligne (`opportunities`, `quotes`, `missions`), sans `default`
+   SQL — le service applicatif la déduit du pays du client à la création
+   (`CH → CHF`, `FR → EUR`, `CA → CAD`, autres pays → `EUR` par défaut,
+   modifiable manuellement ensuite). Évite un défaut trompeur pour les
+   clients hors Suisse.
+2. **`priority` vs `urgency`** : deux axes indépendants, conservés
+   distincts sur `requests`. `urgency` = pression temporelle perçue côté
+   client (souvent renseignée par l'analyse Claude à partir du message/
+   formulaire — section 19/40 du prompt). `priority` = ordre de
+   traitement interne décidé par l'équipe, peut diverger de l'urgence
+   perçue (ex. un prospect très urgent mais peu qualifié reste priorité
+   basse). Les deux partagent l'enum `priority_level` par simplicité mais
+   sont mises à jour indépendamment.
+3. **`documents.entity_type/entity_id` sans FK native** : confirmé et
+   conservé. L'alternative (une colonne FK nullable par type d'entité :
+   `request_id`, `opportunity_id`, `quote_id`, `mission_id`, `client_id`)
+   ajouterait 5 colonnes presque toujours nulles et une contrainte
+   `CHECK` "exactement une non-nulle" plus complexe à maintenir qu'un
+   contrôle applicatif au moment de l'upload. Le compromis polymorphe est
+   conservé, avec vérification d'existence de l'entité faite par
+   `DocumentsService` avant tout insert (jamais côté DB).
+4. **Format de référence** : `KPS-{AAAA}-{NNNNN}` (année sur 4 chiffres,
+   compteur sur 5 chiffres avec padding de zéros, ex. `KPS-2026-00482`).
+   Remise à zéro chaque 1er janvier. Implémenté via une table compteur
+   dédiée plutôt qu'une séquence Postgres globale (une séquence ne se
+   remet pas à zéro automatiquement par année) :
+
+   ```text
+   request_reference_counters
+     year          integer primary key
+     last_value    integer not null default 0
+   ```
+
+   Fonction `generate_request_reference()` : verrouille la ligne de
+   l'année courante (`SELECT ... FOR UPDATE`), incrémente, formate. Cela
+   évite toute collision même en cas de créations concurrentes.
