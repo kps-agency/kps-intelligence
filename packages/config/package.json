@@ -1,0 +1,17 @@
+{
+  "name": "@kps/config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "base.json",
+    "nestjs.json",
+    "nextjs.json",
+    "eslint-base.js",
+    "tailwind-preset.js"
+  ],
+  "dependencies": {
+    "eslint-config-prettier": "^9.1.0",
+    "typescript-eslint": "^8.18.0"
+  }
+}
