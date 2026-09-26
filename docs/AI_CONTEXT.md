@@ -103,10 +103,33 @@ Créé :
   section 73 + JWT/rate-limit).
 - `.gitignore`, `README.md`, `docs/AI_CONTEXT.md` (ce fichier).
 
-Prochaine étape : **Phase 1 — Documentation d'architecture** (`ARCHITECTURE.md`,
-`DATABASE.md` avec schéma PostgreSQL complet, squelettes `API.md`/`AI.md`/
-`WORKFLOWS.md`/`NOTIFICATIONS.md`/`SECURITY.md`), avec checkpoint
-utilisateur pour valider le schéma DB avant migrations.
+**Phase 1 — Documentation d'architecture : en attente de validation.**
+
+Créé : `docs/ARCHITECTURE.md` (archi globale, frontend, backend, event bus,
+IA, multi-canal, déploiement), `docs/DATABASE.md` (schéma PostgreSQL
+complet : RBAC, CRM, services, requests, formulaires dynamiques +
+qualification, events/workflows, notifications, matching, opportunités/
+devis, missions/tâches, documents, conversations, audit — avec stratégie
+RLS deny-all et 4 points ouverts listés en fin de document), squelettes
+`docs/API.md`, `docs/AI.md`, `docs/WORKFLOWS.md`, `docs/NOTIFICATIONS.md`,
+`docs/SECURITY.md`.
+
+Décision structurelle clé prise en Phase 1 : le frontend ne parle jamais
+directement à Supabase pour les données métier — tout passe par
+`apps/api` (service role key côté serveur uniquement), RLS activé partout
+en base comme filet de sécurité (deny-all pour anon/authenticated). La
+page publique de qualification passe aussi par l'API, pas par un accès
+Supabase direct côté navigateur.
+
+**Checkpoint utilisateur requis avant la Phase 2** : valider le schéma
+`docs/DATABASE.md` et les 4 points ouverts listés dans sa section 17
+(devise par défaut, distinction priority/urgency, association polymorphe
+sans FK pour `documents`, format de la référence `KPS-YYYY-NNNNN`) avant
+d'écrire les migrations SQL — un changement de schéma après migration est
+bien plus coûteux qu'avant.
+
+Prochaine étape après validation : **Phase 2 — Supabase & migrations**
+(checkpoint externe : créer le projet Supabase avec l'utilisateur).
 
 **Checkpoints externes en attente** (aucun n'est requis avant la Phase 2
 au plus tôt) :

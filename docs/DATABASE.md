@@ -1,0 +1,655 @@
+# DATABASE.md — Schéma PostgreSQL (Supabase)
+
+Ce document est la source de vérité du schéma relationnel avant écriture
+des migrations SQL (Phase 2). Toute table ci-dessous est réelle et
+relationnelle — aucune donnée métier structurée n'est stockée en JSON par
+défaut ; le JSONB n'est utilisé que là où la variabilité est intrinsèque
+au domaine (réponses de formulaire dynamique, payload d'événement,
+snapshot de version de devis, options de champ de formulaire).
+
+Conventions :
+- Toutes les tables ont `id uuid primary key default gen_random_uuid()`.
+- `created_at timestamptz not null default now()` partout ; `updated_at`
+  quand la ligne est mutable, mis à jour par trigger `updated_at`.
+- Toutes les FK sont `on delete restrict` par défaut, sauf mention
+  contraire (ex. suppression en cascade des lignes enfants type
+  `quote_items`, `form_fields`).
+- Les enums métier sont des types Postgres `ENUM`, alignés 1:1 sur
+  `packages/types/src/enums.ts` — **ce fichier TypeScript est la source de
+  vérité**, les migrations SQL doivent toujours matcher ses valeurs.
+
+---
+
+## 1. RBAC : `roles`, `permissions`, `role_permissions`, `users`
+
+```text
+roles
+  id            uuid pk
+  key           text unique not null        -- SUPER_ADMIN, ADMIN, DIRECTOR,
+                                             -- SALES, PROJECT_MANAGER,
+                                             -- TECHNICAL_MANAGER, TEAM_MEMBER,
+                                             -- VIEWER (packages/types UserRole)
+  label         text not null
+  description   text
+  created_at    timestamptz
+
+permissions
+  id            uuid pk
+  key           text unique not null        -- ex: "requests.read",
+                                             -- "quotes.approve", "users.manage"
+  description   text
+  created_at    timestamptz
+
+role_permissions
+  role_id        uuid fk -> roles(id) on delete cascade
+  permission_id  uuid fk -> permissions(id) on delete cascade
+  primary key (role_id, permission_id)
+
+users
+  id            uuid pk                     -- = auth.users.id (Supabase Auth)
+  first_name    text not null
+  last_name     text not null
+  email         text unique not null
+  phone         text
+  whatsapp      text
+  avatar_url    text
+  role_id       uuid fk -> roles(id) on delete restrict not null
+  status        user_status not null default 'ACTIVE'
+                                             -- ACTIVE, INACTIVE, INVITED, SUSPENDED
+  timezone      text not null default 'Europe/Zurich'
+  language      text not null default 'fr'  -- 'fr' | 'en'
+  created_at    timestamptz
+  updated_at    timestamptz
+```
+
+Le RBAC est **piloté par données** : `role_permissions` est la matrice
+rôle → permission, modifiable sans déploiement. Le guard NestJS
+`@RequirePermission('quotes.approve')` résout le rôle de
+`request.user.role_id` et vérifie la présence de la permission — jamais
+de `if (role === 'ADMIN')` en dur dans un controller.
+
+---
+
+## 2. CRM : `clients`, `contacts`
+
+```text
+clients
+  id            uuid pk
+  company_name  text not null
+  country       text
+  city           text
+  industry      text
+  website        text
+  email          text
+  phone          text
+  whatsapp       text
+  status         client_status not null default 'PROSPECT'
+                                             -- PROSPECT, ACTIVE, INACTIVE, CHURNED
+  source         request_source              -- WEBSITE, EMAIL, WHATSAPP, API, MANUAL
+  notes          text
+  created_at     timestamptz
+  updated_at     timestamptz
+
+contacts
+  id            uuid pk
+  client_id     uuid fk -> clients(id) on delete cascade not null
+  first_name    text not null
+  last_name     text not null
+  email         text
+  phone         text
+  whatsapp      text
+  position      text
+  is_primary    boolean not null default false
+  created_at    timestamptz
+  updated_at    timestamptz
+
+  -- contrainte : un seul contact is_primary=true par client
+  -- (index partiel unique sur (client_id) where is_primary)
+```
+
+---
+
+## 3. Catalogue : `services`
+
+```text
+services
+  id                      uuid pk
+  slug                    service_slug unique not null
+                                             -- WEBSITE, ECOMMERCE, SEO, MAINTENANCE,
+                                             -- BUSINESS_APPLICATION, MOBILE_APP, AI,
+                                             -- AUTOMATION, SOFTWARE, CONSULTING
+  name                    text not null
+  description             text
+  status                  service_status not null default 'ACTIVE'
+                                             -- ACTIVE, INACTIVE, COMING_SOON
+  qualification_form_id   uuid fk -> forms(id) on delete set null
+  created_at              timestamptz
+  updated_at              timestamptz
+```
+
+---
+
+## 4. Objet central : `requests`
+
+```text
+requests
+  id                    uuid pk
+  reference             text unique not null    -- ex: KPS-2026-00482
+  client_id              uuid fk -> clients(id) on delete set null
+  contact_id             uuid fk -> contacts(id) on delete set null
+  source                 request_source not null  -- WEBSITE, EMAIL, WHATSAPP, API, MANUAL
+  channel                text                      -- detail libre (ex: "contact-form-v2")
+  subject                text
+  original_message       text
+  language                text
+  country                 text
+  detected_service_id    uuid fk -> services(id) on delete set null
+  detected_subservice     text
+  status                  request_status not null default 'NEW'
+                                             -- NEW, RECEIVED, AI_ANALYZING, ANALYZED,
+                                             -- FORM_PENDING, FORM_SENT, WAITING_CLIENT,
+                                             -- RESPONSE_RECEIVED, QUALIFYING, QUALIFIED,
+                                             -- UNQUALIFIED, MATCHING, ASSIGNED,
+                                             -- QUOTE_PENDING, QUOTE_SENT, NEGOTIATION,
+                                             -- WON, LOST, CONVERTED_TO_MISSION, CLOSED
+  priority                priority_level default 'MEDIUM'   -- LOW, MEDIUM, HIGH, URGENT
+  urgency                 priority_level
+  qualification_status    text                      -- PENDING, QUALIFIED, UNQUALIFIED
+  ai_confidence            numeric(4,3)              -- 0.000 - 1.000
+  assigned_user_id        uuid fk -> users(id) on delete set null
+  created_at               timestamptz
+  updated_at               timestamptz
+
+  index (status)
+  index (client_id)
+  index (source)
+```
+
+La référence (`KPS-2026-00482`) est générée par une séquence par année
+(fonction Postgres `generate_request_reference()`), jamais côté
+application (évite les doublons en cas de double-soumission concurrente).
+
+---
+
+## 5. Formulaires dynamiques : `forms`, `form_steps`, `form_fields`, `qualification_sessions`, `form_responses`
+
+```text
+forms
+  id            uuid pk
+  service_id     uuid fk -> services(id) on delete set null
+  name           text not null
+  slug           text unique not null
+  description    text
+  status         form_status not null default 'DRAFT'   -- DRAFT, PUBLISHED, ARCHIVED
+  version        integer not null default 1
+  created_at     timestamptz
+  updated_at     timestamptz
+
+form_steps
+  id            uuid pk
+  form_id        uuid fk -> forms(id) on delete cascade not null
+  title          text not null
+  order_index    integer not null
+  created_at     timestamptz
+
+  unique (form_id, order_index)
+
+form_fields
+  id                  uuid pk
+  form_step_id         uuid fk -> form_steps(id) on delete cascade not null
+  key                   text not null              -- identifiant stable (ex: "budget")
+  label                 text not null
+  type                  form_field_type not null   -- TEXT, TEXTAREA, EMAIL, PHONE,
+                                                    -- NUMBER, SELECT, MULTI_SELECT,
+                                                    -- RADIO, CHECKBOX, DATE, URL,
+                                                    -- FILE, CURRENCY, RANGE
+  required              boolean not null default false
+  options               jsonb                       -- [{value,label}] pour SELECT/RADIO/...
+  validation            jsonb                       -- {min,max,pattern,...}
+  conditional_logic      jsonb                       -- {field_key, operator, value}
+  order_index            integer not null
+  created_at             timestamptz
+  updated_at             timestamptz
+
+  unique (form_step_id, key)
+
+qualification_sessions
+  id                uuid pk
+  request_id         uuid fk -> requests(id) on delete cascade not null
+  form_id            uuid fk -> forms(id) on delete restrict not null
+  token_hash          text unique not null      -- sha256(token) ; le token brut
+                                                 -- n'est JAMAIS stocké (section 23)
+  status              qualification_session_status not null default 'CREATED'
+                                                 -- CREATED, SENT, OPENED, IN_PROGRESS,
+                                                 -- COMPLETED, EXPIRED, CANCELLED
+  expires_at           timestamptz not null
+  started_at           timestamptz
+  completed_at         timestamptz
+  last_activity_at     timestamptz
+  language             text
+  created_at            timestamptz
+  updated_at            timestamptz
+
+  index (token_hash)
+  index (request_id)
+
+form_responses
+  id                        uuid pk
+  qualification_session_id  uuid fk -> qualification_sessions(id) on delete cascade not null
+  form_field_id              uuid fk -> form_fields(id) on delete cascade not null
+  value                       jsonb not null        -- valeur brute saisie (autosave)
+  created_at                  timestamptz
+  updated_at                  timestamptz
+
+  unique (qualification_session_id, form_field_id)
+```
+
+Le token de qualification (section 23 du prompt) est généré côté
+backend avec `crypto.randomBytes(32)` (256 bits), encodé en base64url pour
+l'URL publique ; **seul son hash SHA-256 est persisté** (`token_hash`),
+comme pour un mot de passe. La vérification d'un lien entrant recalcule le
+hash et compare.
+
+---
+
+## 6. Événements & Workflow Engine : `events`, `workflows`, `workflow_runs`
+
+```text
+events
+  id            uuid pk
+  type           event_type not null        -- catalogue complet, cf.
+                                             -- packages/types EventType
+  entity_type    text not null              -- 'request' | 'opportunity' | 'mission' | ...
+  entity_id      uuid not null
+  payload        jsonb not null default '{}'
+  actor_type     event_actor_type not null  -- SYSTEM, AI, USER, AUTOMATION
+  actor_id       uuid                       -- users.id si actor_type = USER
+  created_at     timestamptz
+
+  index (entity_type, entity_id, created_at)   -- reconstruction de timeline
+  index (type, created_at)
+
+workflows
+  id             uuid pk
+  name            text not null
+  trigger_event    event_type not null
+  conditions       jsonb not null default '[]'   -- [{field, operator, value}]
+  actions          jsonb not null default '[]'   -- [{type, params}]
+  is_active         boolean not null default true
+  created_at        timestamptz
+  updated_at        timestamptz
+
+workflow_runs
+  id                   uuid pk
+  workflow_id           uuid fk -> workflows(id) on delete cascade not null
+  triggering_event_id    uuid fk -> events(id) on delete set null
+  status                 workflow_run_status not null default 'PENDING'
+                                                  -- PENDING, RUNNING, COMPLETED, FAILED
+  result                  jsonb
+  error                   text
+  started_at              timestamptz
+  completed_at            timestamptz
+  created_at              timestamptz
+```
+
+`events` est **append-only** (aucun `UPDATE`/`DELETE` applicatif) : c'est
+la source de la timeline (section 43) et de l'audit de workflow.
+
+---
+
+## 7. Notifications : `notifications`, `notification_preferences`, `notification_templates`
+
+```text
+notification_templates
+  id            uuid pk
+  key            text not null              -- ex: "qualification_link.email"
+  channel        notification_channel not null   -- IN_APP, EMAIL, WHATSAPP
+  language       text not null
+  subject        text                        -- pour EMAIL
+  body            text not null              -- template avec {{placeholders}}
+  created_at       timestamptz
+  updated_at       timestamptz
+
+  unique (key, channel, language)
+
+notification_preferences
+  id            uuid pk
+  user_id        uuid fk -> users(id) on delete cascade not null
+  event_type      event_type not null
+  channel         notification_channel not null
+  enabled          boolean not null default true
+  created_at        timestamptz
+
+  unique (user_id, event_type, channel)
+
+notifications
+  id                   uuid pk
+  user_id               uuid fk -> users(id) on delete cascade not null
+  event_type             event_type not null
+  channel                 notification_channel not null
+  title                    text not null
+  body                     text not null
+  related_entity_type      text
+  related_entity_id        uuid
+  is_read                   boolean not null default false
+  read_at                   timestamptz
+  created_at                timestamptz
+
+  index (user_id, is_read)
+```
+
+La matrice "qui est notifié pour quel événement" (section 5 du prompt)
+est le produit de `workflows` (action `NOTIFY`) évalué contre
+`notification_preferences` — pas une table séparée : c'est une politique,
+pas une donnée statique.
+
+---
+
+## 8. Matching équipe : `skills`, `user_skills`, `availability`, `matching_results`
+
+```text
+skills
+  id            uuid pk
+  name           text unique not null       -- ex: "Next.js", "NestJS", "SEO technique"
+  category        text                       -- ex: "Frontend", "Backend", "Marketing"
+  created_at       timestamptz
+
+user_skills
+  id               uuid pk
+  user_id           uuid fk -> users(id) on delete cascade not null
+  skill_id           uuid fk -> skills(id) on delete cascade not null
+  proficiency_level  smallint not null check (proficiency_level between 1 and 5)
+  years_experience    numeric(4,1)
+  created_at            timestamptz
+
+  unique (user_id, skill_id)
+
+availability
+  id                     uuid pk
+  user_id                 uuid fk -> users(id) on delete cascade not null
+  status                   availability_status not null  -- AVAILABLE, BUSY, UNAVAILABLE
+  capacity_hours_per_week  smallint
+  available_from            date
+  notes                      text
+  created_at                  timestamptz
+  updated_at                  timestamptz
+
+matching_results
+  id            uuid pk
+  request_id     uuid fk -> requests(id) on delete cascade not null
+  user_id         uuid fk -> users(id) on delete cascade not null
+  score            numeric(5,2) not null      -- 0.00 - 100.00
+  explanation       jsonb not null              -- {positives:[...], negatives:[...]}
+  created_at         timestamptz
+
+  index (request_id)
+```
+
+---
+
+## 9. Pipeline commercial : `opportunities`, `quotes`, `quote_items`, `quote_versions`
+
+```text
+opportunities
+  id                   uuid pk
+  request_id             uuid fk -> requests(id) on delete set null
+  client_id               uuid fk -> clients(id) on delete restrict not null
+  service_id               uuid fk -> services(id) on delete set null
+  status                   opportunity_status not null default 'NEW'
+                                             -- NEW, QUALIFIED, PROPOSAL_REQUIRED,
+                                             -- PROPOSAL_SENT, NEGOTIATION, WON, LOST
+  estimated_value           numeric(12,2)
+  currency                   text default 'CHF'
+  owner_user_id              uuid fk -> users(id) on delete set null
+  expected_close_date         date
+  created_at                   timestamptz
+  updated_at                   timestamptz
+
+quotes
+  id                uuid pk
+  opportunity_id     uuid fk -> opportunities(id) on delete cascade not null
+  client_id           uuid fk -> clients(id) on delete restrict not null
+  reference            text unique not null      -- ex: DEVIS-2026-0031
+  status               quote_status not null default 'DRAFT'
+                                             -- DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+  currency              text default 'CHF'
+  subtotal               numeric(12,2) not null default 0
+  discount                numeric(12,2) not null default 0
+  tax_rate                 numeric(5,2) not null default 0
+  total                     numeric(12,2) not null default 0
+  valid_until               date
+  created_by                 uuid fk -> users(id) on delete set null
+  sent_at                    timestamptz
+  accepted_at                timestamptz
+  rejected_at                 timestamptz
+  created_at                    timestamptz
+  updated_at                    timestamptz
+
+quote_items
+  id                uuid pk
+  quote_id           uuid fk -> quotes(id) on delete cascade not null
+  description          text not null
+  quantity              numeric(10,2) not null default 1
+  unit_price             numeric(12,2) not null
+  discount_percent        numeric(5,2) not null default 0
+  total                    numeric(12,2) not null
+  order_index               integer not null
+
+quote_versions
+  id            uuid pk
+  quote_id       uuid fk -> quotes(id) on delete cascade not null
+  version         integer not null
+  snapshot         jsonb not null             -- copie complète du devis + items à cet instant
+  created_by        uuid fk -> users(id) on delete set null
+  created_at          timestamptz
+
+  unique (quote_id, version)
+```
+
+`quote_versions.snapshot` est le seul JSONB "métier" volontairement figé :
+c'est un historique immuable, pas une donnée interrogeable — il ne
+remplace pas `quote_items`, qui reste la source normalisée de la version
+courante.
+
+---
+
+## 10. Exécution : `missions`, `mission_members`, `tasks`, `task_comments`
+
+```text
+missions
+  id                uuid pk
+  opportunity_id      uuid fk -> opportunities(id) on delete set null
+  client_id            uuid fk -> clients(id) on delete restrict not null
+  service_id            uuid fk -> services(id) on delete set null
+  project_manager_id     uuid fk -> users(id) on delete set null
+  start_date               date
+  end_date                  date
+  status                     mission_status not null default 'PLANNED'
+                                             -- PLANNED, IN_PROGRESS, BLOCKED, ON_HOLD,
+                                             -- COMPLETED, CANCELLED
+  priority                    priority_level default 'MEDIUM'
+  budget                       numeric(12,2)
+  description                    text
+  created_at                      timestamptz
+  updated_at                      timestamptz
+
+mission_members
+  id            uuid pk
+  mission_id     uuid fk -> missions(id) on delete cascade not null
+  user_id         uuid fk -> users(id) on delete cascade not null
+  role_on_mission  text                      -- ex: "Développeur", "Designer"
+  created_at         timestamptz
+
+  unique (mission_id, user_id)
+
+tasks
+  id            uuid pk
+  mission_id     uuid fk -> missions(id) on delete cascade not null
+  title           text not null
+  description       text
+  assignee_id        uuid fk -> users(id) on delete set null
+  due_date             date
+  priority               priority_level default 'MEDIUM'
+  status                  task_status not null default 'TODO'
+                                             -- TODO, IN_PROGRESS, BLOCKED, DONE, CANCELLED
+  created_at                timestamptz
+  updated_at                timestamptz
+
+task_comments
+  id            uuid pk
+  task_id        uuid fk -> tasks(id) on delete cascade not null
+  author_id       uuid fk -> users(id) on delete set null
+  body              text not null
+  created_at          timestamptz
+```
+
+---
+
+## 11. Documents : `documents`
+
+```text
+documents
+  id            uuid pk
+  name           text not null
+  storage_path    text not null           -- chemin dans Supabase Storage
+  mime_type        text not null
+  size              bigint not null
+  entity_type        text not null         -- 'request' | 'opportunity' | 'quote' | 'mission' | 'client'
+  entity_id            uuid not null
+  uploaded_by            uuid fk -> users(id) on delete set null
+  created_at               timestamptz
+
+  index (entity_type, entity_id)
+```
+
+L'association polymorphe (`entity_type` + `entity_id`) n'a pas de FK
+Postgres native (limitation relationnelle assumée) — l'intégrité est
+garantie côté service applicatif (vérification d'existence avant insert),
+documentée ici pour que ce choix ne soit jamais "redécouvert" par erreur.
+
+---
+
+## 12. Conversations : `conversations`, `conversation_messages`
+
+```text
+conversations
+  id            uuid pk
+  client_id      uuid fk -> clients(id) on delete set null
+  contact_id      uuid fk -> contacts(id) on delete set null
+  request_id       uuid fk -> requests(id) on delete set null
+  opportunity_id     uuid fk -> opportunities(id) on delete set null
+  mission_id           uuid fk -> missions(id) on delete set null
+  channel                conversation_channel not null   -- EMAIL, WHATSAPP, SYSTEM
+  created_at                timestamptz
+  updated_at                timestamptz
+
+conversation_messages
+  id                  uuid pk
+  conversation_id       uuid fk -> conversations(id) on delete cascade not null
+  direction              message_direction not null      -- INBOUND, OUTBOUND
+  channel                  conversation_channel not null
+  from_address                text
+  to_address                   text
+  subject                       text
+  body                            text not null
+  external_message_id             text                    -- Message-Id email / id WhatsApp
+  external_thread_id                text
+  sent_at                              timestamptz
+  created_at                            timestamptz
+
+  unique (external_message_id)   -- idempotence (section 17/63), NULL autorisé
+                                  -- pour les messages système sans ID externe
+```
+
+---
+
+## 13. Audit : `audit_logs`
+
+```text
+audit_logs
+  id            uuid pk
+  user_id        uuid fk -> users(id) on delete set null
+  action           text not null              -- ex: "QUOTE_SENT", "STATUS_CHANGED"
+  entity_type        text not null
+  entity_id            uuid not null
+  old_value              jsonb
+  new_value              jsonb
+  ip_address                text
+  user_agent                  text
+  created_at                    timestamptz
+
+  index (entity_type, entity_id, created_at)
+  index (user_id, created_at)
+```
+
+`audit_logs` couvre les actions **sensibles** déclenchées par un
+utilisateur (changements de statut, création de devis, envoi, affectation
+— section 61). Les actions purement système/IA sont déjà couvertes par
+`events` ; `audit_logs` n'est pas une duplication mais un focus
+"qui a fait quoi" avec avant/après, requis pour la conformité RGPD
+(section 66).
+
+---
+
+## 14. Idempotence des jobs asynchrones
+
+Pas de table dédiée : chaque job BullMQ reçoit une `jobId` déterministe
+(ex. `ai-analysis:<request_id>`, `send-notification:<event_id>:<user_id>:<channel>`)
+— BullMQ refuse nativement d'enfiler deux fois le même `jobId` actif. Les
+webhooks (email/WhatsApp) utilisent `conversation_messages.external_message_id`
+comme clé d'idempotence applicative (section 63).
+
+---
+
+## 15. Enums Postgres à créer (Phase 2)
+
+Alignés sur `packages/types/src/enums.ts` :
+
+```text
+user_status                 ACTIVE, INACTIVE, INVITED, SUSPENDED
+client_status                PROSPECT, ACTIVE, INACTIVE, CHURNED
+service_status                 ACTIVE, INACTIVE, COMING_SOON
+service_slug                     (cf. ServiceSlug)
+request_source                     (cf. RequestSource)
+request_status                       (cf. RequestStatus)
+priority_level                          LOW, MEDIUM, HIGH, URGENT
+form_status                                DRAFT, PUBLISHED, ARCHIVED
+form_field_type                                (cf. FormFieldType)
+qualification_session_status                       (cf. QualificationSessionStatus)
+event_type                                              (cf. EventType — ~30 valeurs)
+event_actor_type                                            (cf. EventActorType)
+workflow_run_status                                             PENDING, RUNNING, COMPLETED, FAILED
+notification_channel                                                (cf. NotificationChannel)
+availability_status                                                    AVAILABLE, BUSY, UNAVAILABLE
+opportunity_status                                                        (cf. OpportunityStatus)
+quote_status                                                                DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+mission_status                                                                 (cf. MissionStatus)
+task_status                                                                        TODO, IN_PROGRESS, BLOCKED, DONE, CANCELLED
+conversation_channel                                                                   EMAIL, WHATSAPP, SYSTEM
+message_direction                                                                          INBOUND, OUTBOUND
+```
+
+## 16. RLS (Row Level Security) — stratégie
+
+Décision d'architecture (détaillée dans `SECURITY.md`) : **toutes les
+données métier passent par `apps/api`**, qui utilise la clé
+`service_role` (bypass RLS par nature de Supabase). Le frontend
+n'interroge jamais directement les tables via le SDK Supabase. RLS est
+donc activé sur **toutes** les tables comme *defense in depth* avec une
+politique par défaut **deny-all** pour les rôles `anon` et `authenticated`
+— aucune table métier n'est censée être lisible par un accès Supabase
+direct, y compris authentifié. Seules les tables Supabase Auth propres
+(`auth.users`) suivent le comportement standard de Supabase.
+
+## 17. Points à valider avec l'utilisateur avant migrations (Phase 2)
+
+1. Devise par défaut `CHF` pour `opportunities`/`quotes`/`missions` — à
+   confirmer (KPS opère aussi en France/Canada/Afrique).
+2. `priority` et `urgency` sont deux colonnes distinctes sur `requests`
+   dans le prompt (section 16) mais partagent le même enum
+   `priority_level` — à confirmer que ce ne sont pas deux échelles
+   différentes.
+3. `documents.entity_type/entity_id` sans FK native : accepté comme
+   compromis (association polymorphe), à confirmer.
+4. Séquence de référence (`KPS-2026-00482`) : format exact à valider
+   (padding, remise à zéro annuelle).
