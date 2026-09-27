@@ -63,7 +63,29 @@ centralise l'audit (section 61 du prompt).
 - Formulaires : React Hook Form + Zod, schémas Zod dérivés/alignés sur les
   DTO `class-validator` du backend (les deux sont dans `packages/types`
   quand c'est un contrat partagé — cf. `API.md`).
-- UI : `packages/ui` (shadcn/ui), thème dans `packages/config/tailwind-preset.js`.
+- UI : `packages/ui` (composants écrits à la manière de shadcn/ui : Radix +
+  `class-variance-authority` + `cn`, sans le CLI shadcn), tokens de couleur
+  en variables CSS dans `apps/web/src/app/globals.css`, preset Tailwind
+  dans `packages/config/tailwind-preset.js`. Composants livrés : Button,
+  Card, Badge, Input/Select/Label, Table, Dialog (modal), Sheet (tiroir),
+  DropdownMenu, Skeleton, Avatar. Chaque composant est ajouté avec son
+  premier usage réel ; Timeline (Phase 13) et Kanban (Phase 17) suivront
+  la même règle, faute de données réelles pour les éprouver avant.
+- Structure `apps/web/src/app` : pages publiques (`/login`,
+  `/forgot-password`, `/reset-password`, plus tard `/qualification/[token]`)
+  hors du groupe `(app)` ; toutes les pages authentifiées sont dans le
+  groupe `(app)`, dont le layout résout l'utilisateur (`lib/session.ts`)
+  et affiche le shell (sidebar, topbar, menu utilisateur) ou un écran
+  d'état explicite (session refusée, compte sans profil, API indisponible).
+- Navigation : `lib/navigation.ts` liste toutes les routes de la section 57
+  du cahier des charges. Une entrée dont le module n'est pas livré est
+  affichée désactivée avec sa phase (jamais un lien vers une page vide) ;
+  passer `available: true` quand la page arrive. Les entrées sont filtrées
+  par permission RBAC (affichage seulement — l'API reste l'autorité).
+- Données : côté navigateur, `lib/api-client.ts` (`apiFetch`, erreurs
+  typées `ApiError` avec `requestId`) + hooks TanStack Query dans
+  `lib/queries/` ; contrats typés partagés dans `packages/types`
+  (`api-contracts.ts`). Côté serveur, `lib/session.ts`.
 - Auth : middleware Next.js qui vérifie la session Supabase et redirige
   vers `/login` si absente ; le contrôle d'autorisation fin (RBAC) reste
   côté API — le frontend n'affiche/masque que des éléments d'UI, il ne

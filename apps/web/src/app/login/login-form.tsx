@@ -1,6 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button, Input, Label } from "@kps/ui";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -35,61 +37,64 @@ export function LoginForm() {
       return;
     }
 
-    const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
-    router.push(redirectTo);
+    // "/" n'est qu'un aiguillage vers /dashboard : on y va directement.
+    const redirectTo = searchParams.get("redirectTo");
+    router.push(redirectTo && redirectTo !== "/" ? redirectTo : "/dashboard");
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <input
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
+      <div className="grid gap-1.5">
+        <Label htmlFor="email">Email</Label>
+        <Input
           id="email"
           type="email"
           autoComplete="email"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          aria-invalid={errors.email ? true : undefined}
+          aria-describedby={errors.email ? "email-error" : undefined}
           {...register("email")}
         />
         {errors.email && (
-          <p className="text-sm text-destructive">{errors.email.message}</p>
+          <p id="email-error" className="text-sm text-destructive">
+            {errors.email.message}
+          </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm font-medium">
-          Mot de passe
-        </label>
-        <input
+      <div className="grid gap-1.5">
+        <Label htmlFor="password">Mot de passe</Label>
+        <Input
           id="password"
           type="password"
           autoComplete="current-password"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          aria-invalid={errors.password ? true : undefined}
+          aria-describedby={errors.password ? "password-error" : undefined}
           {...register("password")}
         />
         {errors.password && (
-          <p className="text-sm text-destructive">{errors.password.message}</p>
+          <p id="password-error" className="text-sm text-destructive">
+            {errors.password.message}
+          </p>
         )}
       </div>
 
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && (
+        <p role="alert" className="text-sm text-destructive">
+          {serverError}
+        </p>
+      )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Connexion..." : "Se connecter"}
-      </button>
+      </Button>
 
-      <a
+      <Link
         href="/forgot-password"
-        className="text-center text-sm text-muted-foreground hover:underline"
+        className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Mot de passe oublié ?
-      </a>
+      </Link>
     </form>
   );
 }

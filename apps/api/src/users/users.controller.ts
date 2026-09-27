@@ -26,13 +26,17 @@ export class UsersController {
 
   @Post()
   @RequirePermissions("users.manage")
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+  create(@CurrentUser() actor: AuthenticatedUser, @Body() dto: CreateUserDto) {
+    return this.usersService.create(actor, dto);
   }
 
   @Patch(":id/role")
   @RequirePermissions("users.manage")
-  updateRole(@Param("id") id: string, @Body() dto: UpdateUserRoleDto) {
-    return this.usersService.updateRole(id, dto.roleKey);
+  updateRole(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    return this.usersService.updateRole(actor, id, dto.roleKey);
   }
 }

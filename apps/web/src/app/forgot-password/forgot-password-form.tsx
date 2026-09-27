@@ -1,6 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button, Input, Label } from "@kps/ui";
+import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -32,38 +34,50 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Si un compte existe avec cette adresse, un email de réinitialisation
-        vient d&apos;être envoyé.
-      </p>
+      <div className="grid gap-4">
+        <p role="status" className="text-sm text-muted-foreground">
+          Si un compte existe avec cette adresse, un email de réinitialisation
+          vient d&apos;être envoyé.
+        </p>
+        <Link
+          href="/login"
+          className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Retour à la connexion
+        </Link>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <input
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
+      <div className="grid gap-1.5">
+        <Label htmlFor="email">Email</Label>
+        <Input
           id="email"
           type="email"
           autoComplete="email"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          aria-invalid={errors.email ? true : undefined}
+          aria-describedby={errors.email ? "email-error" : undefined}
           {...register("email")}
         />
         {errors.email && (
-          <p className="text-sm text-destructive">{errors.email.message}</p>
+          <p id="email-error" className="text-sm text-destructive">
+            {errors.email.message}
+          </p>
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Envoi..." : "Envoyer le lien de réinitialisation"}
-      </button>
+      </Button>
+
+      <Link
+        href="/login"
+        className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Retour à la connexion
+      </Link>
     </form>
   );
 }

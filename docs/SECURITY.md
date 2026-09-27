@@ -39,6 +39,23 @@ données métier).
   `SALES`, `PROJECT_MANAGER`, `TECHNICAL_MANAGER`, `TEAM_MEMBER`,
   `VIEWER`.
 
+### Attribution des rôles (anti-élévation de privilèges)
+
+`users.manage` ne suffit pas à attribuer n'importe quel rôle : la règle
+`assertCanAssignRole` (`apps/api/src/users/role-assignment.policy.ts`,
+testée) s'applique à `POST /users` et `PATCH /users/:id/role` :
+
+- personne ne peut modifier **son propre** rôle ;
+- seul un `SUPER_ADMIN` peut attribuer le rôle `SUPER_ADMIN`, ou modifier
+  le rôle d'un `SUPER_ADMIN` existant.
+
+Sans cette règle (constat fait en construisant l'écran Paramètres, Phase
+5), un `ADMIN` pouvait se promouvoir `SUPER_ADMIN`. L'interface n'affiche
+pas les actions interdites, mais c'est l'API qui refuse (403) : vérifié
+avec un compte `ADMIN` sur les 4 cas d'attaque. Limite connue : rien
+n'empêche encore de supprimer/désactiver le dernier `SUPER_ADMIN` (pas de
+fonction de désactivation d'utilisateur pour l'instant).
+
 ## 4. Lien de qualification (page publique)
 
 - Token 256 bits, non séquentiel, jamais stocké en clair (hash SHA-256

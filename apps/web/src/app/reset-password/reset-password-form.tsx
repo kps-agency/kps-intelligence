@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button, Input, Label } from "@kps/ui";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -45,50 +46,52 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm font-medium">
-          Nouveau mot de passe
-        </label>
-        <input
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
+      <div className="grid gap-1.5">
+        <Label htmlFor="password">Nouveau mot de passe</Label>
+        <Input
           id="password"
           type="password"
           autoComplete="new-password"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          aria-invalid={errors.password ? true : undefined}
+          aria-describedby={errors.password ? "password-error" : undefined}
           {...register("password")}
         />
         {errors.password && (
-          <p className="text-sm text-destructive">{errors.password.message}</p>
+          <p id="password-error" className="text-sm text-destructive">
+            {errors.password.message}
+          </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="confirmPassword" className="text-sm font-medium">
-          Confirmer le mot de passe
-        </label>
-        <input
+      <div className="grid gap-1.5">
+        <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+        <Input
           id="confirmPassword"
           type="password"
           autoComplete="new-password"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          aria-invalid={errors.confirmPassword ? true : undefined}
+          aria-describedby={
+            errors.confirmPassword ? "confirmPassword-error" : undefined
+          }
           {...register("confirmPassword")}
         />
         {errors.confirmPassword && (
-          <p className="text-sm text-destructive">
+          <p id="confirmPassword-error" className="text-sm text-destructive">
             {errors.confirmPassword.message}
           </p>
         )}
       </div>
 
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && (
+        <p role="alert" className="text-sm text-destructive">
+          {serverError}
+        </p>
+      )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Enregistrement..." : "Réinitialiser le mot de passe"}
-      </button>
+      </Button>
     </form>
   );
 }

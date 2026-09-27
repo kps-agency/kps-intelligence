@@ -12,6 +12,7 @@
   ],
   "dependencies": {
     "eslint-config-prettier": "^9.1.0",
+    "tailwindcss-animate": "^1.0.7",
     "typescript-eslint": "^8.18.0"
   }
 }

@@ -278,8 +278,82 @@ Points d'attention :
   été validé sur un build de production (Phase 3). Si ça gêne en dev, tester
   avec `next build` + `next start`.
 
-Prochaine étape : **Phase 5 — Fondations Next.js + design system**
-(shadcn/ui, layout sidebar/topbar, TanStack Query, composants de base).
+**Phase 5 — Fondations Next.js + design system : terminée.**
+
+- **`packages/ui`** : Button, Card, Badge, Input/Select/Label, Table, Dialog,
+  Sheet, DropdownMenu, Skeleton, Avatar (Radix + cva + `cn`). Tokens de
+  couleur dans `globals.css` (dont `success`/`warning`), plugin
+  `tailwindcss-animate` dans le preset. `packages/ui` n'a pas de build :
+  seul `apps/web` le consomme, via `transpilePackages`.
+- **Shell** (`apps/web/src/components`) : sidebar fixe desktop, tiroir
+  mobile (Sheet), topbar avec menu utilisateur, lien d'évitement « Aller au
+  contenu », groupe Administration épinglé en bas de la sidebar. Toutes les
+  routes de la section 57 sont listées dans `lib/navigation.ts` ; les 12
+  modules non livrés sont **désactivés avec leur phase** (pas de pages
+  vides). Groupe de routes `(app)` : son layout résout l'utilisateur et
+  gère les états d'échec (`session-rejected`, `no-profile`,
+  `api-unavailable`).
+- **Données** : `apiFetch` + `ApiError` (avec `requestId`), TanStack Query,
+  contrats partagés dans `packages/types/src/api-contracts.ts`,
+  `ROLE_LABELS` dans `packages/shared`.
+- **Vraie page `/settings`** (gestion des utilisateurs, avec les endpoints de
+  la Phase 3) : tableau, création via dialogue (React Hook Form + Zod),
+  changement de rôle, états chargement/erreur/vide, boutons et sélecteurs
+  masqués selon `users.manage`, page « Accès refusé » sans `users.read`.
+  Elle sert de premier consommateur réel de Table/Dialog/Badge/mutations.
+- Pages de connexion migrées sur `@kps/ui` ; titre de page via gabarit
+  `%s · KPS Intelligence`.
+
+**Décisions / écarts au plan** :
+- **Timeline et Kanban non livrés en Phase 5** (le plan les prévoyait en
+  « squelettes »). Sans données réelles ils seraient du code mort invérifiable ;
+  ils seront écrits avec leur premier usage réel (Timeline Phase 13, Kanban
+  Phase 17).
+- **Pas de mode sombre** (le preset Tailwind est prêt : `darkMode: "class"`),
+  pas de cloche de notifications (Phase 14) : aucune fonctionnalité factice.
+- Le shadcn CLI n'est pas utilisé : composants écrits à la main dans le même
+  style, pour éviter la complexité du CLI en monorepo.
+
+**Faille corrigée en cours de phase** : côté API (Phase 3), un `ADMIN`
+pouvait se promouvoir `SUPER_ADMIN` (ou en créer un). Ajout de
+`assertCanAssignRole` (voir `SECURITY.md`) — 6 tests unitaires + 4 attaques
+vérifiées en réel avec un compte `ADMIN`.
+
+**Bugs réels trouvés par le test navigateur** (invisibles au typecheck) :
+1. Le nom accessible du tableau était sur la région et pas sur le `<table>`.
+2. Après fermeture du dialogue (Échap), le focus retombait sur `<body>` : le
+   bouton d'ouverture n'était pas le `DialogTrigger`. Corrigé en faisant
+   posséder le déclencheur par `CreateUserDialog`.
+3. « Paramètres » (seule entrée utile) était sous 12 entrées « Bientôt » :
+   hors écran sur mobile (844 px) et à 800 px de haut → groupe épinglé.
+4. Tableau tronqué sur mobile (rôle coupé, scroll latéral invisible) →
+   colonnes secondaires masquées sous `md`, statut sous le nom.
+5. Risque de boucle de redirection : un 401 de l'API alors que Supabase
+   juge la session valide renverrait vers `/login`, puis le middleware vers
+   `/dashboard`… → traité comme un écran d'état, pas une redirection.
+
+Vérifié en conditions réelles (Playwright sur build de production, 47+
+contrôles) : parcours complet login → dashboard → paramètres → création →
+changement de rôle persisté → déconnexion ; RBAC UI (SUPER_ADMIN / ADMIN /
+VIEWER) ; **axe (WCAG 2.0/2.1 A+AA) sans aucune violation** sur /login,
+/dashboard, /settings, dialogue ouvert, tiroir mobile ouvert et « Accès
+refusé » ; navigation clavier (lien d'évitement au 1er Tab, Échap +
+retour du focus) ; aucun scroll horizontal à 390 px.
+
+Points d'attention connus :
+- Chaque rendu de page appelle `GET /users/me` (≈0,2–2 s : 2 allers-retours
+  Supabase). Correct mais perfectible : un cache court du contexte RBAC côté
+  API serait le levier. À traiter si ça se ressent en usage.
+- Environnement de dev : le port 3000 est occupé sur la machine de dev par un
+  processus étranger au projet. Le web tourne sur 3010 ; l'API doit alors
+  être lancée avec `APP_URL=http://localhost:3010` (CORS), le navigateur
+  appelant maintenant l'API directement.
+- Comptes de test créés dans le projet Supabase : `admin@kps.agency`
+  (SUPER_ADMIN) et `viewer@kps.agency` (VIEWER). `ui-admin@kps.agency`
+  (ADMIN) est recréable via `node supabase/bootstrap-admin.mjs`.
+
+Prochaine étape : **Phase 6 — Clients & Contacts** (premier module CRM :
+API + pages `/clients`, `/clients/[id]`, `/contacts`).
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

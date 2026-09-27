@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import type { CreateUserDto } from "./dto/create-user.dto";
+import { assertCanAssignRole } from "./role-assignment.policy";
 import type { AuthenticatedUser, UserProfile } from "./users.types";
 
 interface UserRow {
@@ -113,7 +114,12 @@ export class UsersService {
     return (data as UserRow[]).map(toProfile);
   }
 
-  async create(dto: CreateUserDto): Promise<UserProfile> {
+  async create(
+    actor: AuthenticatedUser,
+    dto: CreateUserDto,
+  ): Promise<UserProfile> {
+    assertCanAssignRole({ actor, newRole: dto.roleKey });
+
     const client = this.supabase.getClient();
 
     const { data: role, error: roleError } = await client
@@ -162,7 +168,20 @@ export class UsersService {
     return toProfile(profileRow as UserRow);
   }
 
-  async updateRole(id: string, roleKey: string): Promise<UserProfile> {
+  async updateRole(
+    actor: AuthenticatedUser,
+    id: string,
+    roleKey: string,
+  ): Promise<UserProfile> {
+    // findById lève NotFoundException si la cible n'existe pas.
+    const target = await this.findById(id);
+    assertCanAssignRole({
+      actor,
+      targetUserId: id,
+      targetCurrentRole: target.roleKey,
+      newRole: roleKey,
+    });
+
     const client = this.supabase.getClient();
 
     const { data: role, error: roleError } = await client
