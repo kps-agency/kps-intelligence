@@ -557,8 +557,109 @@ production, avec de vrais appels Claude en direct pendant le test) :
 création → analyse visible → re-déclenchement → historique à 2 entrées →
 VIEWER lit sans pouvoir re-déclencher, axe sans violation.
 
-Prochaine étape : **Phase 9 — Services & formulaires de qualification
-(form builder)**. Pas de checkpoint externe requis.
+## Phase 9 — Services & formulaires de qualification (form builder)
+
+Pas de checkpoint externe requis.
+
+Backend :
+- `ServicesModule` : le catalogue de services (10 lignes, pré-seedé en
+  Phase 2) n'a pas de création/suppression — seulement `GET /services`,
+  `GET /services/:id`, `PATCH /services/:id` (description, statut,
+  `qualificationFormId`).
+- `FormsModule` : form builder générique (`forms`/`form_steps`/
+  `form_fields`) — CRUD complet sur les formulaires, étapes et champs,
+  jamais codé en dur côté frontend. Deux fonctions SQL
+  (`reorder_form_steps`, `reorder_form_fields`, migration `500001`)
+  réordonnent de façon atomique via un décalage hors-portée puis une
+  réassignation en un seul appel — évite la collision transitoire d'une
+  permutation en deux `UPDATE` séparés sur une colonne à contrainte
+  unique. La clé d'un champ (`form_fields.key`) doit être unique à
+  l'échelle du **formulaire entier** (contrôlé en application, la
+  contrainte DB ne couvre que l'étape) puisque `conditionalLogic` et les
+  réponses la référencent sans préciser l'étape.
+- Les **5 formulaires de qualification réels** (sections 25-29,
+  migration `500002`) sont des données construites avec ce builder
+  (`forms`/`form_steps`/`form_fields`), publiées (`PUBLISHED`) et liées
+  à leur service. Le formulaire WEBSITE reprend aussi l'exemple exact de
+  logique conditionnelle de la section 30 (« Avez-vous déjà un site ? »
+  OUI → URL, NON → objectif).
+- `QualificationSessionsModule` : `qualification_sessions`/
+  `form_responses` (autosave, section 32) exposés uniquement via des
+  routes **authentifiées** pour l'instant (`POST
+  /requests/:id/qualification-sessions`, `GET
+  /qualification-sessions/:id`, `PUT .../responses/:fieldKey`, `POST
+  .../submit`) — remplir une qualification au nom d'un client depuis la
+  fiche demande. Un token est réellement généré et haché
+  (`crypto.randomBytes` + SHA-256) à la création, mais n'est exposé
+  nulle part encore : la Phase 10 ajoutera la route publique par token
+  au-dessus de ce même service, sans dupliquer la logique. La création
+  est idempotente (une session `CREATED`/`IN_PROGRESS` existante pour le
+  même couple demande/formulaire est réutilisée). La soumission valide
+  côté serveur que tous les champs requis **visibles** ont une réponse
+  non vide avant de passer à `COMPLETED`.
+
+**Bugs réels trouvés et corrigés pendant les tests** (aucun mock — chaque
+bug est apparu en frappant la vraie base ou le vrai navigateur) :
+- Deux relations existent entre `forms` et `services`
+  (`forms.service_id` et `services.qualification_form_id`, sens
+  inverses) : un `.select("*, services(name)")` sans précision était
+  rejeté par PostgREST (`PGRST201`, relation ambiguë). Corrigé avec le
+  nom de contrainte explicite (`services!forms_service_id_fkey`).
+- Le DTO `SaveFormResponseDto.value` utilisait `@IsDefined()`, qui dans
+  class-validator traite `null` comme "non défini" et le rejette — cassait
+  justement le cas d'usage qu'il devait permettre (effacer une réponse).
+  Remplacé par `@IsOptional()`.
+- `form_responses.value` est `not null` en base : y écrire `null` pour
+  "effacer" échouait (contrainte violée). Corrigé en **supprimant** la
+  ligne plutôt qu'en y écrivant un null SQL.
+- `.env` avait `APP_URL=http://localhost:3001` alors que `apps/web`
+  tourne réellement sur le port 3000 (`dev`/`start` le fixent tous les
+  deux) — la CORS allow-origin de l'API ne correspondait donc jamais à
+  l'origine réelle du navigateur, bloquant silencieusement **tous** les
+  appels API du frontend. Trouvé uniquement parce que le test Playwright
+  frappait le vrai navigateur (une requête curl directe à l'API ne
+  l'aurait jamais révélé). Corrigé dans `.env`.
+- Un bug de test (pas applicatif) : `run = \`E2E-FORMS-${Date.now()}\``
+  contenait des majuscules, invalides dans un slug de formulaire
+  (`CreateFormDto` exige minuscules/chiffres/tirets) — faisait échouer en
+  cascade toute la suite `forms.e2e-spec.ts` dès la création du premier
+  formulaire de test.
+
+**48 tests d'intégration réels** sur 3 nouveaux fichiers
+(`services.e2e-spec.ts`, `forms.e2e-spec.ts`,
+`qualification-sessions.e2e-spec.ts`) : catalogue, RBAC, validations
+(options requises pour SELECT/RADIO/..., clé mal formée, clé dupliquée
+dans le formulaire, condition référençant un champ inconnu), cycle de vie
+complet form→step→field→reorder→publish, session
+CREATED→IN_PROGRESS→COMPLETED avec coercion de valeur par type (nombre,
+option valide, effacement), 404/400/403 et non-fuite d'erreur. Les 75
+tests des phases précédentes (requests/crm/ai) repassés sans régression.
+
+Frontend : `/services` (catalogue, configuration par dialogue),
+`/forms` (liste, création) et `/forms/[id]` (builder complet : étapes et
+champs avec réorganisation ▲▼, création/édition/suppression, éditeur
+d'options texte simple `valeur|Libellé`, sélecteur de condition
+d'affichage, publication). Sur `/requests/[id]`, une carte « Qualification »
+démarre ou reprend une session sur le formulaire du service détecté (ou
+un autre, au choix) ; le runner
+(`/requests/[id]/qualification/[sessionId]`) rend dynamiquement le
+formulaire multi-étapes avec barre de progression, logique conditionnelle
+évaluée en direct, autosave (au blur pour le texte, immédiat pour les
+choix), et un écran de résumé en lecture seule une fois `COMPLETED` (y
+compris après rechargement de la page, restauré depuis la session).
+
+Vérifié en conditions réelles (Playwright sur build de production, 23
+contrôles) : catalogue de services et formulaires réels, création
+complète d'un formulaire avec un champ conditionnel construit et testé de
+bout en bout dans le navigateur (masqué avant réponse, apparaît après
+« Oui »), publication, démarrage d'une qualification depuis une vraie
+demande, soumission, restauration après rechargement, RBAC VIEWER sur les
+trois surfaces (services/forms/qualification), axe sans violation sur
+les 4 nouvelles pages (un `aria-progressbar-name` manquant trouvé et
+corrigé).
+
+Prochaine étape : **Phase 10 — Qualification links (page publique)**.
+Pas de checkpoint externe requis.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

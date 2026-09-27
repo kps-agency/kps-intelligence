@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   MessagesSquare,
   Settings,
+  Sparkles,
   Users,
   Workflow,
   type LucideIcon,
@@ -86,7 +87,20 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Automatisation",
     items: [
-      { label: "Formulaires", href: "/forms", icon: ClipboardList, available: false, phase: 9 },
+      {
+        label: "Services",
+        href: "/services",
+        icon: Sparkles,
+        available: true,
+        requiredPermission: "services.read",
+      },
+      {
+        label: "Formulaires",
+        href: "/forms",
+        icon: ClipboardList,
+        available: true,
+        requiredPermission: "forms.read",
+      },
       { label: "Workflows", href: "/workflows", icon: Workflow, available: false, phase: 15 },
       { label: "Notifications", href: "/notifications", icon: Bell, available: false, phase: 14 },
       { label: "Conversations", href: "/conversations", icon: MessagesSquare, available: false, phase: 12 },

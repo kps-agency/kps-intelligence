@@ -1,11 +1,15 @@
 import type {
   AiAnalysisStatus,
   ClientStatus,
+  FormFieldType,
+  FormStatus,
   PriorityLevel,
+  QualificationSessionStatus,
   RequestIntent,
   RequestSource,
   RequestStatus,
   ServiceSlug,
+  ServiceStatus,
   UserRole,
 } from "./enums";
 
@@ -241,6 +245,186 @@ export interface AiAnalysisResponse {
   // brut d'une erreur Anthropic.
   error: string | null;
   createdAt: string;
+}
+
+// ---- Services (section 15) ----
+
+// Réponse de GET /services, GET /services/:id, PATCH /services/:id. Le
+// catalogue de services est un ensemble fixe (ServiceSlug) pré-seedé en
+// base — pas de création depuis l'API, seulement configuration.
+export interface ServiceResponse {
+  id: string;
+  slug: ServiceSlug;
+  name: string;
+  description: string | null;
+  status: ServiceStatus;
+  qualificationFormId: string | null;
+  qualificationFormName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Corps de PATCH /services/:id.
+export interface UpdateServiceRequest {
+  name?: string;
+  description?: string | null;
+  status?: ServiceStatus;
+  // `null` délie le formulaire de qualification du service.
+  qualificationFormId?: string | null;
+}
+
+// ---- Formulaires dynamiques (form builder, sections 30-32) ----
+
+export interface FormFieldOption {
+  value: string;
+  label: string;
+}
+
+export interface FormFieldValidation {
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+}
+
+// Condition d'affichage la plus simple possible (exemple de la section
+// 30 : « Avez-vous déjà un site ? OUI → URL »). Un champ n'est affiché
+// que si le champ `field` (par sa clé) a déjà pour valeur `equals`.
+export interface FormFieldCondition {
+  field: string;
+  equals: string;
+}
+
+export interface FormFieldResponse {
+  id: string;
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  options: FormFieldOption[] | null;
+  validation: FormFieldValidation | null;
+  conditionalLogic: FormFieldCondition | null;
+  orderIndex: number;
+}
+
+export interface FormStepResponse {
+  id: string;
+  title: string;
+  orderIndex: number;
+  fields: FormFieldResponse[];
+}
+
+// Réponse de GET /forms (liste, sans le détail des étapes/champs).
+export interface FormListItemResponse {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  status: FormStatus;
+  version: number;
+  serviceId: string | null;
+  serviceName: string | null;
+  stepCount: number;
+  fieldCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Réponse de GET /forms/:id : le formulaire complet, étapes et champs
+// triés par orderIndex — c'est cette forme que le moteur de rendu
+// dynamique (frontend) consomme directement, jamais un composant codé en
+// dur par service.
+export interface FormResponse
+  extends Omit<FormListItemResponse, "stepCount" | "fieldCount"> {
+  steps: FormStepResponse[];
+}
+
+// Corps de POST /forms.
+export interface CreateFormRequest {
+  name: string;
+  slug: string;
+  description?: string;
+  serviceId?: string;
+}
+
+// Corps de PATCH /forms/:id.
+export interface UpdateFormRequest {
+  name?: string;
+  description?: string | null;
+  status?: FormStatus;
+  serviceId?: string | null;
+}
+
+// Corps de POST /forms/:formId/steps et PATCH .../steps/:stepId.
+export interface CreateFormStepRequest {
+  title: string;
+}
+export interface UpdateFormStepRequest {
+  title?: string;
+}
+
+// Corps de POST .../steps/reorder et .../fields/reorder : l'ordre complet
+// des identifiants, dans l'ordre voulu.
+export interface ReorderRequest {
+  orderedIds: string[];
+}
+
+// Corps de POST .../fields et PATCH .../fields/:fieldId.
+export interface CreateFormFieldRequest {
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required?: boolean;
+  options?: FormFieldOption[];
+  validation?: FormFieldValidation;
+  conditionalLogic?: FormFieldCondition | null;
+}
+export interface UpdateFormFieldRequest {
+  key?: string;
+  label?: string;
+  type?: FormFieldType;
+  required?: boolean;
+  options?: FormFieldOption[] | null;
+  validation?: FormFieldValidation | null;
+  conditionalLogic?: FormFieldCondition | null;
+}
+
+// ---- Sessions de qualification (section 22) ----
+//
+// Exposées uniquement via des routes authentifiées en Phase 9 (remplir
+// une qualification au nom d'un client, depuis la fiche demande). La
+// Phase 10 ajoutera la route publique par token (/qualification/:token)
+// au-dessus de cette même session — pas de duplication de logique.
+
+export interface QualificationSessionResponse {
+  id: string;
+  requestId: string;
+  formId: string;
+  status: QualificationSessionStatus;
+  expiresAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  lastActivityAt: string | null;
+  createdAt: string;
+}
+
+// Réponse de GET /qualification-sessions/:id : la session, le formulaire
+// complet à rendre, et les réponses déjà enregistrées (clé = form_fields.key)
+// pour restaurer l'état si le prospect (ou l'admin en test) revient.
+export interface QualificationSessionDetailResponse
+  extends QualificationSessionResponse {
+  form: FormResponse;
+  responses: Record<string, unknown>;
+}
+
+// Corps de POST /requests/:id/qualification-sessions.
+export interface CreateQualificationSessionRequest {
+  formId: string;
+}
+
+// Corps de PUT /qualification-sessions/:id/responses/:fieldKey.
+export interface SaveFormResponseRequest {
+  value: unknown;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

@@ -21,6 +21,12 @@ export enum ClientStatus {
   CHURNED = "CHURNED",
 }
 
+export enum ServiceStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  COMING_SOON = "COMING_SOON",
+}
+
 export enum ServiceSlug {
   WEBSITE = "WEBSITE",
   ECOMMERCE = "ECOMMERCE",
@@ -125,6 +131,12 @@ export enum MissionStatus {
   ON_HOLD = "ON_HOLD",
   COMPLETED = "COMPLETED",
   CANCELLED = "CANCELLED",
+}
+
+export enum FormStatus {
+  DRAFT = "DRAFT",
+  PUBLISHED = "PUBLISHED",
+  ARCHIVED = "ARCHIVED",
 }
 
 export enum FormFieldType {

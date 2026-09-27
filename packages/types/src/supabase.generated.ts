@@ -1737,6 +1737,14 @@ export type Database = {
     Functions: {
       generate_request_reference: { Args: never; Returns: string }
       get_role_permissions: { Args: { p_role_id: string }; Returns: string[] }
+      reorder_form_fields: {
+        Args: { p_field_ids: string[]; p_form_step_id: string }
+        Returns: undefined
+      }
+      reorder_form_steps: {
+        Args: { p_form_id: string; p_step_ids: string[] }
+        Returns: undefined
+      }
       set_primary_contact: {
         Args: { p_contact_id: string }
         Returns: undefined

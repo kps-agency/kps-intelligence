@@ -9,9 +9,12 @@ import { AuthModule } from "./auth/auth.module";
 import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { ContactsModule } from "./contacts/contacts.module";
+import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
+import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
+import { ServicesModule } from "./services/services.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { UsersModule } from "./users/users.module";
 
@@ -62,6 +65,9 @@ import { UsersModule } from "./users/users.module";
     ClientsModule,
     ContactsModule,
     RequestsModule,
+    ServicesModule,
+    FormsModule,
+    QualificationSessionsModule,
     AuthModule,
   ],
   providers: [

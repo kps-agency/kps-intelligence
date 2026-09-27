@@ -233,7 +233,7 @@ form_fields
   required              boolean not null default false
   options               jsonb                       -- [{value,label}] pour SELECT/RADIO/...
   validation            jsonb                       -- {min,max,pattern,...}
-  conditional_logic      jsonb                       -- {field_key, operator, value}
+  conditional_logic      jsonb                       -- {field, equals} — voir note Phase 9
   order_index            integer not null
   created_at             timestamptz
   updated_at             timestamptz
@@ -276,6 +276,35 @@ backend avec `crypto.randomBytes(32)` (256 bits), encodé en base64url pour
 l'URL publique ; **seul son hash SHA-256 est persisté** (`token_hash`),
 comme pour un mot de passe. La vérification d'un lien entrant recalcule le
 hash et compare.
+
+### 5bis. Implémentation réelle (Phase 9)
+
+- `conditional_logic` : forme volontairement simple `{field, equals}`
+  (un champ dépend d'un autre par sa `key` et une valeur exacte) — reprend
+  l'exemple unique de la section 30 du prompt plutôt qu'un système
+  d'opérateurs généraliste non demandé. `field` doit référencer une `key`
+  existante ailleurs dans le **même formulaire** (validé côté service).
+- `form_fields.key` : unique par étape en base (`unique(form_step_id,
+  key)`), mais l'application impose en plus l'unicité **à l'échelle du
+  formulaire entier** (`FormsService.assertKeyAvailable`) — nécessaire
+  puisque `conditional_logic` et `form_responses` référencent une clé sans
+  préciser son étape.
+- Réordonnancement atomique de `form_steps`/`form_fields` : fonctions SQL
+  `reorder_form_steps(form_id, step_ids[])` et `reorder_form_fields
+  (form_step_id, field_ids[])` (migration `20260927500001`) — décalent
+  d'abord tous les `order_index` hors de portée (+100000) avant de poser
+  les positions finales, pour éviter toute collision transitoire avec la
+  contrainte unique sur `form_steps`.
+- `qualification_sessions`/`form_responses` ne sont utilisées qu'via des
+  routes **authentifiées** en Phase 9 (remplir une qualification au nom
+  d'un client depuis `/requests/:id`) : un token est bien généré et
+  haché à la création, mais rien ne l'expose encore publiquement — la
+  Phase 10 ajoutera la route publique par token au-dessus de ce même
+  service, sans dupliquer la logique.
+- « Effacer » une réponse (`value: null` côté client) **supprime la ligne**
+  de `form_responses` plutôt que d'y écrire un null SQL — la colonne
+  `value` est `not null`, et un null JSON authentique (`'null'::jsonb`)
+  n'est de toute façon pas ce qu'on veut représenter ici.
 
 ---
 
