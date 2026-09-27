@@ -1,4 +1,10 @@
-import type { ClientStatus, RequestSource, UserRole } from "./enums";
+import type {
+  ClientStatus,
+  PriorityLevel,
+  RequestSource,
+  RequestStatus,
+  UserRole,
+} from "./enums";
 
 // Contrats partagés entre apps/api et apps/web : le frontend type ses
 // appels avec ces formes au lieu de les redéfinir. Ce sont les formes JSON
@@ -142,6 +148,56 @@ export interface UpdateContactRequest {
   // Seul `true` est accepté : on change de contact principal en en
   // désignant un autre.
   isPrimary?: true;
+}
+
+// ---- Requests (objet central) ----
+
+// Réponse de GET/POST/PATCH /requests — le nom du client et du contact
+// liés est inclus pour éviter un aller-retour supplémentaire côté liste.
+export interface RequestResponse {
+  id: string;
+  reference: string;
+  clientId: string | null;
+  clientCompanyName: string | null;
+  contactId: string | null;
+  contactFullName: string | null;
+  source: RequestSource;
+  channel: string | null;
+  subject: string;
+  originalMessage: string | null;
+  language: string | null;
+  country: string | null;
+  status: RequestStatus;
+  priority: PriorityLevel | null;
+  urgency: PriorityLevel | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Corps de POST /requests (source MANUAL, fixée par le serveur).
+export interface CreateRequestRequest {
+  subject: string;
+  originalMessage?: string;
+  language?: string;
+  country?: string;
+  priority?: PriorityLevel;
+  urgency?: PriorityLevel;
+  clientId?: string;
+  contactId?: string;
+}
+
+// Corps de PATCH /requests/:id. `null` sur clientId délie le client (et
+// implicitement le contact) ; les autres `null` effacent le champ.
+export interface UpdateRequestRequest {
+  subject?: string;
+  originalMessage?: string | null;
+  language?: string | null;
+  country?: string | null;
+  status?: RequestStatus;
+  priority?: PriorityLevel;
+  urgency?: PriorityLevel;
+  clientId?: string | null;
+  contactId?: string | null;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

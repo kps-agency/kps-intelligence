@@ -1198,7 +1198,7 @@ export type Database = {
           reference: string
           source: Database["public"]["Enums"]["request_source"]
           status: Database["public"]["Enums"]["request_status"]
-          subject: string | null
+          subject: string
           updated_at: string
           urgency: Database["public"]["Enums"]["priority_level"] | null
         }
@@ -1220,7 +1220,7 @@ export type Database = {
           reference?: string
           source: Database["public"]["Enums"]["request_source"]
           status?: Database["public"]["Enums"]["request_status"]
-          subject?: string | null
+          subject: string
           updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
         }
@@ -1242,7 +1242,7 @@ export type Database = {
           reference?: string
           source?: Database["public"]["Enums"]["request_source"]
           status?: Database["public"]["Enums"]["request_status"]
-          subject?: string | null
+          subject?: string
           updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
         }

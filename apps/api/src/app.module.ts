@@ -10,6 +10,7 @@ import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { ContactsModule } from "./contacts/contacts.module";
 import { HealthModule } from "./health/health.module";
+import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { UsersModule } from "./users/users.module";
@@ -60,6 +61,7 @@ import { UsersModule } from "./users/users.module";
     RolesModule,
     ClientsModule,
     ContactsModule,
+    RequestsModule,
     AuthModule,
   ],
   providers: [

@@ -54,6 +54,7 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | events | `/api/v1/events` (lecture timeline) | 13 |
 | clients | `/api/v1/clients` | 6 |
 | contacts | `/api/v1/clients/:clientId/contacts`, `/api/v1/contacts` | 6 |
+| requests | `/api/v1/requests` (source MANUAL uniquement — EMAIL/WHATSAPP arrivent par webhook aux Phases 11-12) | 7 |
 | notifications | `/api/v1/notifications` | 14 |
 | workflows | `/api/v1/workflows` | 15 |
 | team / skills / matching | `/api/v1/team`, `/api/v1/matching` | 16 |

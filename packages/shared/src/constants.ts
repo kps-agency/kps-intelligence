@@ -1,4 +1,4 @@
-import { ClientStatus, UserRole } from "@kps/types";
+import { ClientStatus, PriorityLevel, RequestStatus, UserRole } from "@kps/types";
 
 // Constantes métier partagées, issues de prompt.md (sections 12, 21, 37).
 // Toute règle métier chiffrée (délais, seuils) doit vivre ici plutôt
@@ -34,4 +34,36 @@ export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   [ClientStatus.ACTIVE]: "Actif",
   [ClientStatus.INACTIVE]: "Inactif",
   [ClientStatus.CHURNED]: "Perdu",
+};
+
+/** Libellés d'affichage des statuts de demande (section 16). */
+export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
+  [RequestStatus.NEW]: "Nouvelle",
+  [RequestStatus.RECEIVED]: "Reçue",
+  [RequestStatus.AI_ANALYZING]: "Analyse IA en cours",
+  [RequestStatus.ANALYZED]: "Analysée",
+  [RequestStatus.FORM_PENDING]: "Formulaire à envoyer",
+  [RequestStatus.FORM_SENT]: "Formulaire envoyé",
+  [RequestStatus.WAITING_CLIENT]: "En attente du client",
+  [RequestStatus.RESPONSE_RECEIVED]: "Réponse reçue",
+  [RequestStatus.QUALIFYING]: "Qualification en cours",
+  [RequestStatus.QUALIFIED]: "Qualifiée",
+  [RequestStatus.UNQUALIFIED]: "Non qualifiée",
+  [RequestStatus.MATCHING]: "Recherche d'équipe",
+  [RequestStatus.ASSIGNED]: "Assignée",
+  [RequestStatus.QUOTE_PENDING]: "Devis à préparer",
+  [RequestStatus.QUOTE_SENT]: "Devis envoyé",
+  [RequestStatus.NEGOTIATION]: "Négociation",
+  [RequestStatus.WON]: "Gagnée",
+  [RequestStatus.LOST]: "Perdue",
+  [RequestStatus.CONVERTED_TO_MISSION]: "Convertie en mission",
+  [RequestStatus.CLOSED]: "Clôturée",
+};
+
+/** Libellés d'affichage des niveaux de priorité/urgence. */
+export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
+  [PriorityLevel.LOW]: "Faible",
+  [PriorityLevel.MEDIUM]: "Moyenne",
+  [PriorityLevel.HIGH]: "Haute",
+  [PriorityLevel.URGENT]: "Urgente",
 };

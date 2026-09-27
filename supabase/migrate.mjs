@@ -19,17 +19,49 @@ const migrationsDir = join(__dirname, "migrations");
 
 loadEnv({ path: join(repoRoot, ".env") });
 
+// DATABASE_URL doit pointer sur le Session Pooler (IPv4) — voir
+// .env.example. La connexion directe (db.<ref>.supabase.co) est IPv6
+// uniquement et s'est révélée franchement injoignable (ENETUNREACH, pas
+// une simple lenteur) sur certains réseaux, y compris celui utilisé pour
+// développer ce projet. Le pooler est aussi le choix recommandé par
+// Supabase pour ce cas de figure.
+//
+// Les tentatives ci-dessous couvrent les blips réseau ordinaires — elles
+// n'auraient pas suffi à elles seules pour le problème IPv6 ci-dessus,
+// qui n'était pas transitoire. pg.Client ne peut pas retenter une
+// connexion après un échec (il refuse toute réutilisation, même après un
+// connect() raté), donc chaque tentative recrée un client.
+async function connectWithRetry(connectionString, attempts = 3, delayMs = 1500) {
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const client = new Client({
+      connectionString,
+      ssl: { rejectUnauthorized: false },
+    });
+    try {
+      await client.connect();
+      return client;
+    } catch (err) {
+      lastErr = err;
+      await client.end().catch(() => {});
+      if (attempt < attempts) {
+        console.log(
+          `Connexion échouée (${err.code ?? err.message}), nouvelle tentative ${attempt}/${attempts - 1}...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL manquant — vérifie ton fichier .env.");
   }
 
-  const client = new Client({
-    connectionString: databaseUrl,
-    ssl: { rejectUnauthorized: false },
-  });
-  await client.connect();
+  const client = await connectWithRetry(databaseUrl);
 
   try {
     await client.query(`

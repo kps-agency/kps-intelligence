@@ -44,10 +44,13 @@ export function useContacts(params: ListContactsParams) {
   });
 }
 
+// `clientId` vide (aucun client sélectionné, ex. dans un formulaire de
+// demande) : `enabled: false` évite un appel avec un identifiant invalide.
 export function useContactsByClient(clientId: string) {
   return useQuery({
     queryKey: ["clients", "contacts", clientId] as const,
     queryFn: () => apiFetch<ContactResponse[]>(`/clients/${clientId}/contacts`),
+    enabled: clientId.length > 0,
   });
 }
 

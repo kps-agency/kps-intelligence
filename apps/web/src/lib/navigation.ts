@@ -51,7 +51,13 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Commercial",
     items: [
-      { label: "Demandes", href: "/requests", icon: Inbox, available: false, phase: 7 },
+      {
+        label: "Demandes",
+        href: "/requests",
+        icon: Inbox,
+        available: true,
+        requiredPermission: "requests.read",
+      },
       {
         label: "Clients",
         href: "/clients",

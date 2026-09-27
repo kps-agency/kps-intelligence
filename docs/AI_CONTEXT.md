@@ -420,9 +420,74 @@ test, pas à l'application (confirmé : `/health`, qui ne dépend pas de
 Supabase Auth, répondait en 3ms pendant le ralentissement). À espacer les
 campagnes de tests e2e si ça se reproduit.
 
-Prochaine étape : **Phase 7 — Requests (objet central) + inbox manuelle**
-(module `requests`, source `MANUAL` d'abord, page `/requests`,
-`/requests/[id]`).
+**Phase 7 — Requests (objet central) + inbox manuelle : terminée.**
+
+**Incident d'infrastructure traité en préalable** : la connexion directe à
+Postgres (`db.<ref>.supabase.co`, IPv6 uniquement) s'est révélée
+franchement injoignable (`ENETUNREACH`, pas une simple lenteur) depuis le
+réseau de développement — confirmé que ce n'était pas un problème de
+résolution DNS (`nslookup` et `dns.resolve6()` réussissaient tous les
+deux) mais une vraie absence de route IPv6. `DATABASE_URL` pointe
+désormais sur le **Session Pooler** (IPv4,
+`aws-1-eu-west-1.pooler.supabase.com`), l'option recommandée par Supabase
+pour ce cas — cf. `.env.example`. `supabase/migrate.mjs` garde des
+tentatives avec backoff pour les blips réseau ordinaires (insuffisantes
+seules pour ce problème précis, qui n'était pas transitoire).
+
+Backend (`apps/api`) :
+- Module `requests` (`GET/POST /requests`, `GET/PATCH /requests/:id`).
+  Permissions `requests.read`/`requests.manage` sur le même schéma que le
+  CRM (Phase 6) — SALES en est le propriétaire principal. **Pas de
+  suppression** : la demande est l'objet central de tout le pipeline, son
+  historique doit rester traçable.
+- Source figée à `MANUAL` côté serveur (jamais un champ du DTO) —
+  EMAIL/WHATSAPP/WEBSITE arriveront par webhook aux Phases 11-12, jamais
+  via ce endpoint. Référence (`KPS-AAAA-NNNNN`) et statut par défaut
+  (`NEW`) gérés par la base (Phase 2).
+- Lien client/contact validé activement : `contactId` exige `clientId`,
+  et le contact doit appartenir à ce client précis (`assertClientContactMatch`,
+  réutilisé création + modification). Changer de client sans préciser de
+  nouveau contact délie automatiquement l'ancien (évite un contact
+  orphelin d'un autre client). `clientId: null` délie aussi le contact.
+- Correction de schéma : `requests.subject` n'avait pas de contrainte
+  `NOT NULL` en base alors que l'API l'exige partout (migration
+  `20260927300002` — 0 ligne affectée, table encore vide à ce moment).
+- **27 tests d'intégration réels** (`apps/api/test/requests.e2e-spec.ts`,
+  contre la vraie base) : RBAC, RLS, validation, lien client/contact
+  (dont le cas de contact n'appartenant pas au bon client), cycle de vie
+  complet, pagination/recherche/filtres, non-fuite d'erreurs. Cumulé avec
+  le CRM : **61 tests d'intégration** au total.
+
+Frontend (`apps/web`) : pages `/requests` (liste avec recherche/filtre par
+statut) et `/requests/[id]` (fiche éditable : sujet, message, statut,
+priorité, urgence, liaison client/contact avec le même sélecteur que le
+formulaire de création). Libellés français des 20 statuts et des niveaux
+de priorité ajoutés à `packages/shared` (`REQUEST_STATUS_LABELS`,
+`PRIORITY_LABELS`), regroupés en couleurs de badge sémantiques plutôt que
+20 couleurs distinctes (`apps/web/src/lib/request-display.ts`).
+
+**Bug de synchronisation trouvé dans le test navigateur, pas dans
+l'app** : le script attendait une requête réseau `/contacts` après
+sélection d'un client dans le formulaire de demande, mais TanStack Query
+sert parfois cette donnée depuis son cache (si le client a été consulté
+dans les 30 dernières secondes) sans requête réseau — comportement
+voulu (`staleTime`), pas un défaut. Le test attendait le mauvais signal ;
+corrigé pour attendre le résultat visible plutôt qu'un appel réseau
+supposé. Accessoirement confirmé au passage : Playwright considère les
+`<option>` HTML comme "hidden" pour son test de visibilité stricte même
+quand elles existent bel et bien — ne jamais `waitFor({state:"visible"})`
+dessus, `selectOption()` gère déjà l'attente correctement en interne.
+
+Vérifié en conditions réelles (Playwright sur build de production, 21+
+contrôles, 3 exécutions consécutives sans échec) : création avec
+client+contact liés, changement de statut/priorité/urgence persistés,
+déliaison du client, recherche par sujet et par référence, filtre par
+statut, RBAC SUPER_ADMIN/VIEWER, axe sans violation, mobile sans scroll
+horizontal.
+
+Prochaine étape : **Phase 8 — Claude AI (AIService)**. Checkpoint externe
+#2 à franchir avant de commencer : créer la clé API Anthropic avec
+l'utilisateur.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

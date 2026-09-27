@@ -36,6 +36,13 @@ export enum ServiceSlug {
   CONSULTING = "CONSULTING",
 }
 
+export enum PriorityLevel {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  URGENT = "URGENT",
+}
+
 export enum RequestSource {
   WEBSITE = "WEBSITE",
   EMAIL = "EMAIL",

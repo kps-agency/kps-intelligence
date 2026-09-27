@@ -139,7 +139,7 @@ requests
   contact_id             uuid fk -> contacts(id) on delete set null
   source                 request_source not null  -- WEBSITE, EMAIL, WHATSAPP, API, MANUAL
   channel                text                      -- detail libre (ex: "contact-form-v2")
-  subject                text
+  subject                text not null
   original_message       text
   language                text
   country                 text
