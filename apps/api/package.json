@@ -12,6 +12,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "@kps/shared": "workspace:*",
     "@kps/types": "workspace:*",
     "@nestjs/common": "^10.4.0",

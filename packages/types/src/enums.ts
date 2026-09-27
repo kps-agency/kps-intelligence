@@ -74,6 +74,30 @@ export enum RequestStatus {
   CLOSED = "CLOSED",
 }
 
+// Un seul type d'analyse pour l'instant (section 19). L'analyse des
+// réponses de qualification (section 40, Phase 9+) et l'extraction de
+// documents (section 55) ajouteront leurs propres valeurs plus tard.
+export enum AiAnalysisKind {
+  REQUEST_ANALYSIS = "REQUEST_ANALYSIS",
+}
+
+export enum AiAnalysisStatus {
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+}
+
+// Intentions détectables sur une demande entrante (section 19 du prompt).
+export enum RequestIntent {
+  SERVICE_REQUEST = "SERVICE_REQUEST",
+  EXISTING_CLIENT = "EXISTING_CLIENT",
+  SUPPORT_REQUEST = "SUPPORT_REQUEST",
+  MAINTENANCE_REQUEST = "MAINTENANCE_REQUEST",
+  MODIFICATION_REQUEST = "MODIFICATION_REQUEST",
+  QUOTE_REQUEST = "QUOTE_REQUEST",
+  SPAM = "SPAM",
+  OUT_OF_SCOPE = "OUT_OF_SCOPE",
+}
+
 export enum QualificationSessionStatus {
   CREATED = "CREATED",
   SENT = "SENT",

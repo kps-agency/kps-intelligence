@@ -1,4 +1,4 @@
-import { ClientStatus, PriorityLevel, RequestStatus, UserRole } from "@kps/types";
+import { ClientStatus, PriorityLevel, RequestIntent, RequestStatus, UserRole } from "@kps/types";
 
 // Constantes métier partagées, issues de prompt.md (sections 12, 21, 37).
 // Toute règle métier chiffrée (délais, seuils) doit vivre ici plutôt
@@ -67,3 +67,22 @@ export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
   [PriorityLevel.HIGH]: "Haute",
   [PriorityLevel.URGENT]: "Urgente",
 };
+
+/** Libellés d'affichage des intentions détectées par l'analyse IA (section 19). */
+export const REQUEST_INTENT_LABELS: Record<RequestIntent, string> = {
+  [RequestIntent.SERVICE_REQUEST]: "Nouvelle demande de service",
+  [RequestIntent.EXISTING_CLIENT]: "Client existant",
+  [RequestIntent.SUPPORT_REQUEST]: "Demande de support",
+  [RequestIntent.MAINTENANCE_REQUEST]: "Demande de maintenance",
+  [RequestIntent.MODIFICATION_REQUEST]: "Demande de modification",
+  [RequestIntent.QUOTE_REQUEST]: "Demande de devis",
+  [RequestIntent.SPAM]: "Spam",
+  [RequestIntent.OUT_OF_SCOPE]: "Hors périmètre",
+};
+
+/**
+ * Sous ce seuil de confiance (section 71), une analyse IA doit être
+ * signalée comme nécessitant une validation humaine plutôt qu'être prise
+ * telle quelle.
+ */
+export const AI_LOW_CONFIDENCE_THRESHOLD = 0.6;

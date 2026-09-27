@@ -1,0 +1,7 @@
+{
+  "subject": "Refonte de notre site vitrine",
+  "originalMessage": "Bonjour, nous sommes une étude d'architectes basée à Lyon et notre site actuel date de 2015. Nous cherchons une agence pour le refaire entièrement : design moderne, présentation de nos réalisations, formulaire de contact, et un espace actualités. Environ 8 pages. Pas de vente en ligne prévue.",
+  "language": "fr",
+  "country": "France",
+  "expected": { "intent": "SERVICE_REQUEST", "service": "WEBSITE" }
+}

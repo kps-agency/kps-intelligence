@@ -1,0 +1,7 @@
+{
+  "subject": "Notre site est en panne",
+  "originalMessage": "Bonjour, je suis client chez vous depuis 2 ans (projet boutique-artisan.fr livré l'an dernier). Depuis ce matin le site affiche une erreur 500 sur toutes les pages et on ne peut plus prendre de commandes. C'est urgent, on perd des ventes.",
+  "language": "fr",
+  "country": "France",
+  "expected": { "intent": "SUPPORT_REQUEST", "service": "MAINTENANCE" }
+}

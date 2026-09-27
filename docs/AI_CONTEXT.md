@@ -485,13 +485,84 @@ déliaison du client, recherche par sujet et par référence, filtre par
 statut, RBAC SUPER_ADMIN/VIEWER, axe sans violation, mobile sans scroll
 horizontal.
 
-Prochaine étape : **Phase 8 — Claude AI (AIService)**. Checkpoint externe
-#2 à franchir avant de commencer : créer la clé API Anthropic avec
-l'utilisateur.
+## Phase 8 — Claude AI (AIService)
+
+Checkpoint externe #2 franchi : clé API Anthropic workspace-scoped créée
+avec l'utilisateur (deux itérations — la première clé n'était pas
+rattachée à un workspace, la deuxième a buté sur un solde de crédits
+insuffisant avant que l'utilisateur ajoute des crédits).
+
+Backend (`apps/api/src/ai/`) :
+- `AIService` (interface, token `AI_SERVICE`) + `AnthropicAiService`
+  (`@anthropic-ai/sdk`), injectée dans `RequestsService`. `analyzeRequest`
+  force la sortie via `tool_choice` (jamais de texte libre reparsé) — le
+  schéma de l'outil correspond exactement à `RequestAnalysisResult`
+  (`packages/types`). Prompt versionné dans
+  `ai/prompts/request-analysis.ts` (`request-analysis@1`).
+- Nouvelle table `ai_analyses` (migration `20260927400001`, une ligne par
+  appel réel à Claude, jamais écrasée — voir `docs/DATABASE.md` §4bis).
+- `RequestsService.create` déclenche l'analyse **de façon synchrone** :
+  aucune file d'attente asynchrone n'existe encore dans le projet, donc
+  l'appel Claude fait partie du cycle de la requête HTTP `POST /requests`
+  elle-même. Un échec (réseau, pas de `tool_use`, retries épuisés) ne
+  bloque jamais la création : une ligne `ai_analyses` `FAILED` est
+  persistée avec un message générique, la demande reste utilisable
+  (section 68 du prompt). Nouveaux endpoints :
+  `POST /requests/:id/analyze` (re-déclenchement manuel,
+  `requests.manage`) et `GET /requests/:id/analyses` (historique complet,
+  `requests.read`).
+- Sur un succès, `requests.detected_service_id` (résolu par slug),
+  `detected_subservice`, `ai_confidence`, `status` (`ANALYZED`) sont mis à
+  jour ; `language`/`country`/`urgency` uniquement s'ils n'étaient pas déjà
+  fixés par un humain.
+- Seuil de confiance basse partagé backend/frontend :
+  `AI_LOW_CONFIDENCE_THRESHOLD = 0.6` dans `packages/shared` (une seule
+  source de vérité, pas de duplication du nombre magique).
+
+**Ambiguïtés de classification trouvées et corrigées par de vrais appels
+à Claude, pas par intuition** — le prompt système a été affiné trois fois
+après des échecs de test bien réels (7 fixtures de la section 71) :
+1. `SERVICE_REQUEST` vs `QUOTE_REQUEST` : un premier contact avec un
+   budget indicatif mentionné (cas fréquent en vrai) était parfois
+   classé `QUOTE_REQUEST`. Clarifié : `QUOTE_REQUEST` seulement pour un
+   chiffrage demandé sur un périmètre déjà discuté.
+2. `service` sur un `SUPPORT_REQUEST` mentionnant un site existant était
+   instable (`null`/`ECOMMERCE`/`MAINTENANCE` selon les runs). Clarifié :
+   `MAINTENANCE` seulement pour une vraie panne/incident technique.
+3. `MAINTENANCE_REQUEST` vs `SERVICE_REQUEST` (service=`MAINTENANCE`) :
+   une demande de contrat de maintenance sans site existant mentionné
+   partait parfois en `MAINTENANCE_REQUEST` au lieu de `SERVICE_REQUEST`.
+   Clarifié dans le prompt, et la fixture correspondante réécrite pour
+   mentionner explicitement un site déjà livré par KPS (lève l'ambiguïté
+   réelle plutôt que de la contourner par une assertion trop souple).
+
+**14 tests d'intégration réels** (`apps/api/test/ai.e2e-spec.ts`, avec de
+vrais appels à l'API Anthropic — aucun mock) : classification des 7
+fixtures, cas volontairement ambigu (vérifie l'absence de crash et des
+`missingInformation` non vides plutôt qu'une confiance figée — sortie non
+déterministe d'un vrai modèle), historique après re-déclenchement, 404,
+RBAC, non-fuite d'erreur. Les 27 tests `requests.e2e-spec.ts` existants
+ont dû être ajustés : la création d'une demande MANUAL passe désormais
+directement à `ANALYZED` (plus `NEW`) et `urgency` peut être déduite par
+l'IA plutôt que rester `null` — comportement voulu de la Phase 8, pas une
+régression.
+
+Frontend : `request-analysis-card.tsx` sur `/requests/[id]` — résultat de
+la dernière analyse (intention, résumé, confiance, informations
+manquantes, action recommandée), bandeau d'avertissement si confiance
+< 0.6, bouton de re-déclenchement (ADMIN/SALES uniquement), historique
+compact des analyses précédentes. Champ « Service détecté » ajouté à la
+fiche demande. Vérifié en conditions réelles (Playwright sur build de
+production, avec de vrais appels Claude en direct pendant le test) :
+création → analyse visible → re-déclenchement → historique à 2 entrées →
+VIEWER lit sans pouvoir re-déclencher, axe sans violation.
+
+Prochaine étape : **Phase 9 — Services & formulaires de qualification
+(form builder)**. Pas de checkpoint externe requis.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
-2. ⏳ Clé API Anthropic — requise avant Phase 8.
+2. ✅ Clé API Anthropic — fait (Phase 8).
 3. ⏳ Provider email — requis avant Phase 11.
 4. ⏳ Compte Meta WhatsApp Business Cloud API — requis avant Phase 12.
 

@@ -1,4 +1,5 @@
 import type {
+  AiAnalysisResponse,
   CreateRequestRequest,
   PaginatedResponse,
   RequestResponse,
@@ -66,6 +67,25 @@ export function useUpdateRequest(id: string) {
     onSuccess: (updated) => {
       queryClient.setQueryData(["requests", "detail", id], updated);
       void queryClient.invalidateQueries({ queryKey: ["requests"] });
+    },
+  });
+}
+
+export function useRequestAnalyses(id: string) {
+  return useQuery({
+    queryKey: ["requests", "analyses", id] as const,
+    queryFn: () => apiFetch<AiAnalysisResponse[]>(`/requests/${id}/analyses`),
+  });
+}
+
+export function useAnalyzeRequest(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<AiAnalysisResponse>(`/requests/${id}/analyze`, { method: "POST" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["requests", "analyses", id] });
+      void queryClient.invalidateQueries({ queryKey: ["requests", "detail", id] });
     },
   });
 }

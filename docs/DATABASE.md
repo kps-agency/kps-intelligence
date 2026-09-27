@@ -171,6 +171,31 @@ La référence (`KPS-2026-00482`) est générée par la fonction Postgres
 jamais côté application (évite les doublons en cas de double-soumission
 concurrente).
 
+### 4bis. Traçabilité IA : `ai_analyses` (Phase 8)
+
+```text
+ai_analyses
+  id                uuid pk
+  request_id         uuid fk -> requests(id) on delete cascade
+  kind                ai_analysis_kind not null   -- REQUEST_ANALYSIS (seule valeur pour l'instant)
+  status              ai_analysis_status not null  -- COMPLETED, FAILED
+  prompt_version      text not null                -- ex: "request-analysis@1"
+  model               text not null                -- ex: "claude-sonnet-5"
+  confidence          numeric(4,3)                 -- renseigné uniquement si COMPLETED
+  result              jsonb                        -- RequestAnalysisResult, si COMPLETED
+  error               text                         -- message générique, si FAILED
+  created_at          timestamptz
+
+  index (request_id, created_at desc)
+```
+
+Une ligne par appel réel à Claude, jamais écrasée : une ré-analyse en
+ajoute une nouvelle plutôt que de remplacer la précédente, ce qui garde
+l'historique complet consultable (section 6 du prompt — toute action IA
+doit être traçable). `requests.detected_service_id`, `detected_subservice`
+et `ai_confidence` reflètent toujours la dernière analyse `COMPLETED`
+réussie ; une analyse `FAILED` n'y touche pas.
+
 ---
 
 ## 5. Formulaires dynamiques : `forms`, `form_steps`, `form_fields`, `qualification_sessions`, `form_responses`

@@ -46,7 +46,7 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | clients | `/api/v1/clients` | 6 |
 | contacts | `/api/v1/contacts` | 6 |
 | requests | `/api/v1/requests` | 7 |
-| ai | (interne, pas de route publique) | 8 |
+| ai | `POST /api/v1/requests/:id/analyze`, `GET /api/v1/requests/:id/analyses` (module `ai` interne, pas de base path propre — voir `docs/AI.md`) | 8 |
 | services / forms | `/api/v1/services`, `/api/v1/forms` | 9 |
 | qualification | `/api/v1/qualification`, route publique `/api/v1/public/qualification/:token` | 10 |
 | email | webhook `/api/v1/webhooks/email` | 11 |

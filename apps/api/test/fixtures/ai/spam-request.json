@@ -1,0 +1,7 @@
+{
+  "subject": "GAGNEZ 10000€ FACILEMENT - OFFRE LIMITEE !!!",
+  "originalMessage": "FELICITATIONS !!! Vous avez ete selectionne pour recevoir 10000€ GRATUITEMENT. Cliquez ici maintenant sur www.offre-incroyable-limitee.example pour reclamer votre gain avant qu'il ne soit trop tard !!! Aucun frais, aucun engagement, agissez vite !!!",
+  "language": null,
+  "country": null,
+  "expected": { "intent": "SPAM", "service": null }
+}

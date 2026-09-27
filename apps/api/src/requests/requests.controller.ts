@@ -48,4 +48,18 @@ export class RequestsController {
   update(@Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateRequestDto) {
     return this.requestsService.update(id, dto);
   }
+
+  // Re-déclenchement manuel (section 19) : utile après une analyse en échec
+  // ou à faible confiance, ou si la demande a été modifiée depuis.
+  @Post(":id/analyze")
+  @RequirePermissions("requests.manage")
+  analyze(@Param("id", ParseUUIDPipe) id: string) {
+    return this.requestsService.analyze(id);
+  }
+
+  @Get(":id/analyses")
+  @RequirePermissions("requests.read")
+  listAnalyses(@Param("id", ParseUUIDPipe) id: string) {
+    return this.requestsService.listAnalyses(id);
+  }
 }

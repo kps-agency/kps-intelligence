@@ -1,12 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { AI_LOW_CONFIDENCE_THRESHOLD } from "@kps/shared";
 import type {
+  AiAnalysisResponse,
+  AiAnalysisStatus,
   Database,
   PaginatedResponse,
   PriorityLevel,
+  RequestAnalysisResult,
   RequestResponse,
   RequestSource,
   RequestStatus,
+  ServiceSlug,
 } from "@kps/types";
+import { AI_SERVICE, type AIService } from "../ai/ai.service.interface";
 import { toDbException } from "../common/db-error";
 import { toRange } from "../common/pagination-query.dto";
 import { toContainsPattern } from "../common/search";
@@ -20,10 +26,14 @@ type RequestUpdate = Database["public"]["Tables"]["requests"]["Update"];
 type RequestWithLinks = RequestRow & {
   clients: { company_name: string } | null;
   contacts: { first_name: string; last_name: string } | null;
+  services: { slug: string; name: string } | null;
 };
+type AiAnalysisRow = Database["public"]["Tables"]["ai_analyses"]["Row"];
 
 const REQUEST_SELECT =
-  "*, clients(company_name), contacts(first_name, last_name)";
+  "*, clients(company_name), contacts(first_name, last_name), services(slug, name)";
+
+const logger = new Logger("RequestsService");
 
 function toResponse(row: RequestWithLinks): RequestResponse {
   return {
@@ -46,14 +56,34 @@ function toResponse(row: RequestWithLinks): RequestResponse {
     status: row.status as RequestStatus,
     priority: row.priority as PriorityLevel | null,
     urgency: row.urgency as PriorityLevel | null,
+    detectedServiceSlug: (row.services?.slug as ServiceSlug | undefined) ?? null,
+    detectedServiceName: row.services?.name ?? null,
+    detectedSubservice: row.detected_subservice,
+    aiConfidence: row.ai_confidence,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
+function toAnalysisResponse(row: AiAnalysisRow): AiAnalysisResponse {
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    status: row.status as AiAnalysisStatus,
+    model: row.model,
+    confidence: row.confidence,
+    result: row.result as unknown as RequestAnalysisResult | null,
+    error: row.error,
+    createdAt: row.created_at,
+  };
+}
+
 @Injectable()
 export class RequestsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    @Inject(AI_SERVICE) private readonly aiService: AIService,
+  ) {}
 
   async list(
     query: ListRequestsQueryDto,
@@ -121,6 +151,19 @@ export class RequestsService {
       .single();
 
     if (error) throw toDbException(error);
+
+    // Analyse IA synchrone (Phase 8, section 19) : pas de file d'attente
+    // asynchrone en place pour l'instant, et une demande MANUAL doit être
+    // analysée dès sa création. Un échec ne doit jamais bloquer la
+    // création (section 68) — runAnalysis avale déjà ses propres erreurs.
+    await this.runAnalysis({
+      id: data.id,
+      subject: dto.subject,
+      original_message: dto.originalMessage ?? null,
+      language: dto.language ?? null,
+      country: dto.country ?? null,
+    });
+
     return this.findById(data.id);
   }
 
@@ -213,6 +256,140 @@ export class RequestsService {
       throw new BadRequestException(
         "Ce contact n'appartient pas au client sélectionné.",
       );
+    }
+  }
+
+  // Déclenche (ou redéclenche) une analyse IA pour une demande existante.
+  async analyze(id: string): Promise<AiAnalysisResponse> {
+    const { data: row, error } = await this.supabase
+      .getClient()
+      .from("requests")
+      .select("id, subject, original_message, language, country")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw toDbException(error);
+    if (!row) throw new NotFoundException("Demande introuvable.");
+
+    return this.runAnalysis(row);
+  }
+
+  async listAnalyses(requestId: string): Promise<AiAnalysisResponse[]> {
+    const { data: requestRow, error: requestError } = await this.supabase
+      .getClient()
+      .from("requests")
+      .select("id")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (requestError) throw toDbException(requestError);
+    if (!requestRow) throw new NotFoundException("Demande introuvable.");
+
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("ai_analyses")
+      .select("*")
+      .eq("request_id", requestId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw toDbException(error);
+    return (data as AiAnalysisRow[]).map(toAnalysisResponse);
+  }
+
+  // Panne Claude après épuisement des retries du SDK (section 68) : jamais
+  // propagée à l'appelant — une analyse FAILED est persistée pour garder
+  // une trace et permettre un traitement manuel, la demande reste utilisable.
+  private async runAnalysis(row: {
+    id: string;
+    subject: string;
+    original_message: string | null;
+    language: string | null;
+    country: string | null;
+  }): Promise<AiAnalysisResponse> {
+    const model = this.aiService.getModel();
+    const promptVersion = this.aiService.getPromptVersion();
+    const client = this.supabase.getClient();
+
+    try {
+      const result = await this.aiService.analyzeRequest({
+        subject: row.subject,
+        originalMessage: row.original_message,
+        language: row.language,
+        country: row.country,
+      });
+
+      let detectedServiceId: string | null = null;
+      if (result.service) {
+        const { data: service, error: serviceError } = await client
+          .from("services")
+          .select("id")
+          .eq("slug", result.service)
+          .maybeSingle();
+        if (serviceError) throw toDbException(serviceError);
+        detectedServiceId = service?.id ?? null;
+      }
+
+      const requestUpdate: RequestUpdate = {
+        detected_service_id: detectedServiceId,
+        detected_subservice: result.subservice,
+        ai_confidence: result.confidence,
+        status: "ANALYZED",
+      };
+      if (!row.language && result.language) requestUpdate.language = result.language;
+      if (!row.country && result.country) requestUpdate.country = result.country;
+      if (result.urgency) requestUpdate.urgency = result.urgency;
+
+      const { error: updateError } = await client
+        .from("requests")
+        .update(requestUpdate)
+        .eq("id", row.id);
+      if (updateError) throw toDbException(updateError);
+
+      const { data: analysisRow, error: insertError } = await client
+        .from("ai_analyses")
+        .insert({
+          request_id: row.id,
+          kind: "REQUEST_ANALYSIS",
+          status: "COMPLETED",
+          prompt_version: promptVersion,
+          model,
+          confidence: result.confidence,
+          result: result as unknown as Database["public"]["Tables"]["ai_analyses"]["Insert"]["result"],
+        })
+        .select("*")
+        .single();
+      if (insertError) throw toDbException(insertError);
+
+      if (result.confidence < AI_LOW_CONFIDENCE_THRESHOLD) {
+        logger.warn(
+          { requestId: row.id, confidence: result.confidence },
+          "Analyse IA à faible confiance : validation humaine requise",
+        );
+      }
+
+      return toAnalysisResponse(analysisRow as AiAnalysisRow);
+    } catch (err) {
+      logger.error(
+        { requestId: row.id, err: err instanceof Error ? err.message : String(err) },
+        "Échec de l'analyse IA",
+      );
+
+      const { data: failedRow, error: insertError } = await client
+        .from("ai_analyses")
+        .insert({
+          request_id: row.id,
+          kind: "REQUEST_ANALYSIS",
+          status: "FAILED",
+          prompt_version: promptVersion,
+          model,
+          // Jamais le détail brut de l'erreur (section 68) : message
+          // générique seulement, le détail reste dans les logs serveur.
+          error: "L'analyse IA a échoué. Un traitement manuel est requis.",
+        })
+        .select("*")
+        .single();
+      if (insertError) throw toDbException(insertError);
+
+      return toAnalysisResponse(failedRow as AiAnalysisRow);
     }
   }
 }

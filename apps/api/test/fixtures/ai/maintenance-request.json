@@ -1,0 +1,7 @@
+{
+  "subject": "Contrat de maintenance pour notre site",
+  "originalMessage": "Bonjour, vous nous avez livré notre site WordPress en 2022 mais nous n'avons jamais pris de contrat d'entretien depuis. Il n'a plus été mis à jour depuis 2 ans et on a peur des failles de sécurité. On voudrait passer sur une formule de maintenance régulière avant qu'il y ait un vrai problème : mises à jour, sauvegardes, monitoring.",
+  "language": "fr",
+  "country": "France",
+  "expected": { "intent": "MAINTENANCE_REQUEST", "service": "MAINTENANCE" }
+}

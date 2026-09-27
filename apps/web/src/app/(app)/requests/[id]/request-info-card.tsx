@@ -99,6 +99,16 @@ export function RequestInfoCard({
               <Field label="Langue" value={request.language} />
               <Field label="Source" value={request.source} />
               <Field
+                label="Service détecté"
+                value={
+                  request.detectedServiceName
+                    ? [request.detectedServiceName, request.detectedSubservice]
+                        .filter(Boolean)
+                        .join(" — ")
+                    : null
+                }
+              />
+              <Field
                 label="Reçue le"
                 value={dateTimeFormatter.format(new Date(request.createdAt))}
               />

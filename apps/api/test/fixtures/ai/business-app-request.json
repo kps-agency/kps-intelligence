@@ -1,0 +1,7 @@
+{
+  "subject": "Application interne de gestion des stocks",
+  "originalMessage": "Nous sommes un grossiste en matériel électrique avec 3 entrepôts. Nous gérons encore nos stocks sur Excel et ça devient ingérable. Il nous faudrait une application web sur-mesure pour suivre les stocks en temps réel entre nos entrepôts, avec des comptes différents pour chaque équipe et des alertes de réapprovisionnement.",
+  "language": "fr",
+  "country": "France",
+  "expected": { "intent": "SERVICE_REQUEST", "service": "BUSINESS_APPLICATION" }
+}

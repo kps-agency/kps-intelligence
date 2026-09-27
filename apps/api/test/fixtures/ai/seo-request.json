@@ -1,0 +1,7 @@
+{
+  "subject": "Améliorer notre visibilité Google",
+  "originalMessage": "Notre site est en ligne depuis un an mais nous n'apparaissons nulle part sur Google, même en cherchant notre propre nom d'entreprise. Nous voudrions un audit et un accompagnement pour remonter dans les résultats de recherche sur nos mots-clés principaux (comptabilité PME Bruxelles).",
+  "language": "fr",
+  "country": "Belgium",
+  "expected": { "intent": "SERVICE_REQUEST", "service": "SEO" }
+}

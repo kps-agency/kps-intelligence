@@ -4,6 +4,7 @@ import { Card, CardContent, Skeleton } from "@kps/ui";
 import Link from "next/link";
 import { ApiError } from "@/lib/api-client";
 import { useRequestDetail } from "@/lib/queries/requests";
+import { RequestAnalysisCard } from "./request-analysis-card";
 import { RequestInfoCard } from "./request-info-card";
 
 export function RequestDetail({
@@ -56,6 +57,7 @@ export function RequestDetail({
       </div>
 
       <RequestInfoCard request={req.data} canManage={canManage} />
+      <RequestAnalysisCard requestId={requestId} canManage={canManage} />
     </div>
   );
 }

@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_analyses: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          error: string | null
+          id: string
+          kind: Database["public"]["Enums"]["ai_analysis_kind"]
+          model: string
+          prompt_version: string
+          request_id: string
+          result: Json | null
+          status: Database["public"]["Enums"]["ai_analysis_status"]
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["ai_analysis_kind"]
+          model: string
+          prompt_version: string
+          request_id: string
+          result?: Json | null
+          status: Database["public"]["Enums"]["ai_analysis_status"]
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["ai_analysis_kind"]
+          model?: string
+          prompt_version?: string
+          request_id?: string
+          result?: Json | null
+          status?: Database["public"]["Enums"]["ai_analysis_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analyses_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -1696,6 +1743,8 @@ export type Database = {
       }
     }
     Enums: {
+      ai_analysis_kind: "REQUEST_ANALYSIS"
+      ai_analysis_status: "COMPLETED" | "FAILED"
       availability_status: "AVAILABLE" | "BUSY" | "UNAVAILABLE"
       client_status: "PROSPECT" | "ACTIVE" | "INACTIVE" | "CHURNED"
       conversation_channel: "EMAIL" | "WHATSAPP" | "SYSTEM"
@@ -1938,6 +1987,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ai_analysis_kind: ["REQUEST_ANALYSIS"],
+      ai_analysis_status: ["COMPLETED", "FAILED"],
       availability_status: ["AVAILABLE", "BUSY", "UNAVAILABLE"],
       client_status: ["PROSPECT", "ACTIVE", "INACTIVE", "CHURNED"],
       conversation_channel: ["EMAIL", "WHATSAPP", "SYSTEM"],

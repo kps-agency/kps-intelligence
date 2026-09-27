@@ -192,7 +192,9 @@ describe("Requests (intégration réelle)", () => {
         clientCompanyName: null,
         contactFullName: null,
         source: "MANUAL",
-        status: "NEW",
+        // Depuis la Phase 8, l'analyse IA tourne de façon synchrone à la
+        // création (section 19) : le statut passe directement à ANALYZED.
+        status: "ANALYZED",
       });
       expect(created.reference).toMatch(/^KPS-\d{4}-\d{5}$/);
     });
@@ -248,8 +250,11 @@ describe("Requests (intégration réelle)", () => {
         subject: `${run}-life`,
         country: "Suisse",
         priority: "HIGH",
-        urgency: null,
       });
+      // `urgency` n'est plus forcément null : l'analyse IA synchrone
+      // (Phase 8) peut la déduire du message. On vérifie juste qu'elle
+      // reste dans l'enum plutôt que de figer une valeur non déterministe.
+      expect(["LOW", "MEDIUM", "HIGH", "URGENT", null]).toContain(created.urgency);
     });
 
     it("relit la demande par son id", async () => {
@@ -367,8 +372,10 @@ describe("Requests (intégration réelle)", () => {
     });
 
     it("filtre par statut et par source", async () => {
+      // Depuis la Phase 8, une demande MANUAL passe à ANALYZED dès sa
+      // création (analyse IA synchrone) : elle ne reste jamais NEW.
       const response = await http()
-        .get(`/api/v1/requests?search=${run}-page&status=NEW&source=MANUAL`)
+        .get(`/api/v1/requests?search=${run}-page&status=ANALYZED&source=MANUAL`)
         .set(as(adminToken))
         .expect(200);
       expect(response.body.meta.total).toBe(3);

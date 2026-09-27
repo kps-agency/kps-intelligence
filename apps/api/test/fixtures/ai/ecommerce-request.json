@@ -1,0 +1,7 @@
+{
+  "subject": "Création boutique en ligne",
+  "originalMessage": "Bonjour, je dirige une marque de cosmétiques bio en Suisse romande et je souhaite vendre mes produits directement en ligne. J'ai environ 40 références, il me faut une gestion des stocks, un paiement par carte et TWINT, et la livraison en Suisse et en France. Budget autour de 20000 CHF.",
+  "language": "fr",
+  "country": "Switzerland",
+  "expected": { "intent": "SERVICE_REQUEST", "service": "ECOMMERCE" }
+}

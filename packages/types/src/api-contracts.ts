@@ -1,8 +1,11 @@
 import type {
+  AiAnalysisStatus,
   ClientStatus,
   PriorityLevel,
+  RequestIntent,
   RequestSource,
   RequestStatus,
+  ServiceSlug,
   UserRole,
 } from "./enums";
 
@@ -170,6 +173,10 @@ export interface RequestResponse {
   status: RequestStatus;
   priority: PriorityLevel | null;
   urgency: PriorityLevel | null;
+  detectedServiceSlug: ServiceSlug | null;
+  detectedServiceName: string | null;
+  detectedSubservice: string | null;
+  aiConfidence: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -198,6 +205,42 @@ export interface UpdateRequestRequest {
   urgency?: PriorityLevel;
   clientId?: string | null;
   contactId?: string | null;
+}
+
+// ---- Claude AI (analyse de demande, section 19) ----
+
+// Résultat structuré renvoyé par Claude (contenu de `AiAnalysisResponse.result`
+// quand status = COMPLETED). Forme figée par le schéma d'outil imposé à
+// l'appel — jamais du texte libre reparsé.
+export interface RequestAnalysisResult {
+  intent: RequestIntent;
+  service: ServiceSlug | null;
+  subservice: string | null;
+  language: string | null;
+  country: string | null;
+  companyName: string | null;
+  summary: string;
+  urgency: PriorityLevel | null;
+  budget: string | null;
+  deadline: string | null;
+  missingInformation: string[];
+  confidence: number;
+  recommendedAction: string;
+}
+
+// Réponse de GET /requests/:id/analyses et POST /requests/:id/analyze.
+export interface AiAnalysisResponse {
+  id: string;
+  requestId: string;
+  status: AiAnalysisStatus;
+  model: string;
+  confidence: number | null;
+  // `null` quand status = FAILED.
+  result: RequestAnalysisResult | null;
+  // Message générique seulement quand status = FAILED — jamais le détail
+  // brut d'une erreur Anthropic.
+  error: string | null;
+  createdAt: string;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un
