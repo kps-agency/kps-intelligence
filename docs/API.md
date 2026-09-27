@@ -5,12 +5,32 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 
 ## Conventions
 
-- Toutes les routes sont préfixées `/api/v1`.
-- Documentation interactive : Swagger/OpenAPI exposé sur `/api/docs`
-  (désactivé en production ou protégé par auth — décision à prendre en
-  Phase 25).
+- Toutes les routes sont préfixées `/api/v1`, sauf `/health` (public, sans
+  préfixe, pour les sondes d'infrastructure).
+- Documentation interactive : Swagger UI sur `/api/docs`, spec OpenAPI JSON
+  sur `/api/docs-json`. Généré automatiquement (plugin `@nestjs/swagger`
+  du CLI Nest : les DTO `class-validator` sont documentés sans décorateur
+  supplémentaire). Désactivé quand `APP_ENV=production`.
+- Authentification : `Authorization: Bearer <access_token Supabase>` sur
+  toute route sauf `@Public()`. Dans Swagger UI, bouton "Authorize".
 - Pagination standard : `?page=&limit=`, réponse `{ data, meta: { total, page, limit } }`.
-- Erreurs : format uniforme `{ statusCode, message, error, requestId }`.
+- Erreurs : format uniforme pour **toutes** les erreurs (y compris 401, 403,
+  429, validation et erreurs inattendues), produit par
+  `AllExceptionsFilter` :
+  ```json
+  { "statusCode": 403, "message": "Permission insuffisante.",
+    "error": "Forbidden", "requestId": "8d1cb6ae-..." }
+  ```
+  `message` est un tableau pour les erreurs de validation. Une erreur
+  inattendue renvoie toujours un 500 générique ; son détail n'est que dans
+  les logs.
+- `x-request-id` : chaque réponse porte cet en-tête. Un client peut en
+  fournir un (il est alors repris tel quel), sinon il est généré. C'est la
+  clé pour retrouver toutes les lignes de log d'une requête.
+- Rate limiting : `RATE_LIMIT_MAX` requêtes par fenêtre de `RATE_LIMIT_TTL`
+  secondes et par IP, au-delà : `429`. Les en-têtes `x-ratelimit-*` sont
+  renvoyés.
+- CORS : limité à `APP_URL` (pas de wildcard).
 - Tous les DTO d'entrée sont validés par `class-validator` ; les DTO de
   sortie ne renvoient jamais de champs internes sensibles (score IA brut,
   notes internes) sur les routes exposées à la page publique de

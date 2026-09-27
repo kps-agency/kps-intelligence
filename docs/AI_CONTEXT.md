@@ -245,10 +245,41 @@ Vérifié en conditions réelles (pas seulement "ça compile") :
   "Se déconnecter" → redirigé vers `/login` → `/dashboard` de nouveau
   inaccessible sans session.
 
-Prochaine étape : **Phase 4 — Fondations NestJS** (Swagger/OpenAPI, filtre
-d'exceptions global, logger structuré avec `requestId`, rate limiting) —
-une partie (ValidationPipe global, préfixe `/api/v1`) a déjà été posée en
-Phase 3 par nécessité.
+**Phase 4 — Fondations NestJS : terminée.**
+
+- **Swagger/OpenAPI** : `/api/docs` (UI) et `/api/docs-json`, généré via le
+  plugin `@nestjs/swagger` du CLI Nest (déclaré dans `nest-cli.json`, donc
+  actif avec `nest build`/`nest start`, pas avec ts-jest). Bearer auth
+  documenté. Désactivé si `APP_ENV=production`.
+- **Filtre d'exceptions global** (`src/common/all-exceptions.filter.ts`,
+  `APP_FILTER`) : un seul format d'erreur `{statusCode, message, error,
+  requestId}` pour tout (401/403/429/validation/500). Les erreurs
+  inattendues sont logguées avec leur stack, jamais détaillées au client.
+- **Logs structurés** (`nestjs-pino`, JSON) avec `requestId` : repris de
+  `x-request-id` s'il est fourni, sinon généré, renvoyé dans la réponse.
+  `authorization` et `cookie` masqués.
+- **Rate limiting** (`@nestjs/throttler`, guard global) depuis
+  `RATE_LIMIT_TTL`/`RATE_LIMIT_MAX`. **CORS** limité à `APP_URL`.
+- Nouvelle variable : `LOG_LEVEL` (défaut `info`).
+
+Vérifié en conditions réelles : Swagger UI accessible (200) et spec listant
+les routes + le bearer + les champs de `CreateUserDto` ; `x-request-id`
+généré, et repris quand fourni ; 401 sans token avec le corps normalisé et le
+bon `requestId` ; 429 après dépassement de la limite (testé avec une limite
+basse à 8/min) ; token absent des logs sur un appel authentifié réel
+(`"authorization":"[Redacted]"`) ; 6 tests unitaires du filtre/health.
+
+Points d'attention :
+- Le compteur de rate limiting est en mémoire (par instance) : à basculer sur
+  Redis (déjà prévu pour BullMQ) si l'API passe en plusieurs instances.
+- Le mode dev de Next.js (`next dev`) compile les pages à la demande : la
+  première navigation après un login peut prendre plusieurs secondes et
+  donner l'impression que la redirection est bloquée. Le parcours complet a
+  été validé sur un build de production (Phase 3). Si ça gêne en dev, tester
+  avec `next build` + `next start`.
+
+Prochaine étape : **Phase 5 — Fondations Next.js + design system**
+(shadcn/ui, layout sidebar/topbar, TanStack Query, composants de base).
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

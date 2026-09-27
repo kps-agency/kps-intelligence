@@ -1,7 +1,12 @@
-import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module";
+import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { HealthModule } from "./health/health.module";
 import { RolesModule } from "./roles/roles.module";
 import { SupabaseModule } from "./supabase/supabase.module";
@@ -16,11 +21,46 @@ import { UsersModule } from "./users/users.module";
       // monorepo, où vit le .env partagé.
       envFilePath: join(__dirname, "..", "..", "..", ".env"),
     }),
+    // Logs JSON structurés. Chaque requête reçoit un requestId (repris de
+    // l'en-tête x-request-id s'il existe, sinon généré) renvoyé au client
+    // dans le même en-tête et présent dans toutes les lignes de log de la
+    // requête. Les en-têtes sensibles ne sont jamais logués.
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        pinoHttp: {
+          level: config.get<string>("LOG_LEVEL") ?? "info",
+          genReqId: (req, res) => {
+            const incoming = req.headers["x-request-id"];
+            const requestId =
+              typeof incoming === "string" && incoming.length > 0
+                ? incoming
+                : randomUUID();
+            res.setHeader("x-request-id", requestId);
+            return requestId;
+          },
+          redact: ["req.headers.authorization", "req.headers.cookie"],
+        },
+      }),
+    }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: Number(config.get<string>("RATE_LIMIT_TTL") ?? 60) * 1000,
+          limit: Number(config.get<string>("RATE_LIMIT_MAX") ?? 100),
+        },
+      ],
+    }),
     SupabaseModule,
     HealthModule,
     UsersModule,
     RolesModule,
     AuthModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule {}

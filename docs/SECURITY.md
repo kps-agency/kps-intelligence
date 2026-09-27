@@ -59,11 +59,20 @@ données métier).
   `DATABASE.md` §12) — un replay de webhook ne doit jamais créer de
   doublon ni renvoyer une notification en double.
 
-## 6. Rate limiting & CORS
+## 6. Rate limiting, CORS & logs
 
-- Rate limiting global configurable via `RATE_LIMIT_TTL`/`RATE_LIMIT_MAX`
-  (`.env.example`), plus strict sur les routes publiques et les webhooks.
-- CORS restreint à `APP_URL` en production (pas de wildcard).
+- Rate limiting global (`@nestjs/throttler`, guard global) configurable via
+  `RATE_LIMIT_TTL`/`RATE_LIMIT_MAX` (`.env.example`). **En place depuis la
+  Phase 4** ; une limite plus stricte reste à ajouter sur les routes
+  publiques et les webhooks quand elles existeront (Phases 10-12).
+  Limitation connue : le compteur est en mémoire (par instance) — à passer
+  sur Redis si l'API tourne un jour en plusieurs instances.
+- CORS restreint à `APP_URL` (pas de wildcard) — **en place depuis la
+  Phase 4**.
+- Logs JSON structurés (`nestjs-pino`) : les en-têtes `authorization` et
+  `cookie` sont masqués (`[Redacted]`), vérifié sur un appel authentifié
+  réel — le token n'apparaît jamais dans les logs.
+- Swagger (`/api/docs`) désactivé quand `APP_ENV=production`.
 
 ## 7. Fichiers (Supabase Storage)
 
