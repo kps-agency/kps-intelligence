@@ -161,10 +161,94 @@ Vérifié concrètement (pas seulement "ça compile") :
   correctes (`KPS-2026-00001`, `KPS-2026-00002`, ...).
 - Seed structurel : 8 rôles, 10 services (5 `ACTIVE`, 5 `COMING_SOON`).
 
-Prochaine étape : **Phase 3 — Auth & RBAC**. Point d'architecture à
-anticiper : la vérification JWT côté `apps/api` se fera via
-`SUPABASE_JWKS_URL` (clés asymétriques), pas via un secret partagé — à
-documenter précisément dans `SECURITY.md` en Phase 3.
+**Phase 3 — Auth & RBAC : terminée.**
+
+Backend (`apps/api`) :
+- `SupabaseModule` (global) : client Supabase serveur typé
+  (`SupabaseClient<Database>`, types générés depuis le vrai schéma via
+  `pnpm db:gen-types` → `supabase/generate-types.mjs`, wrapper de
+  `supabase gen types typescript --db-url ... ` sans besoin de session CLI
+  authentifiée).
+- `JwtVerifierService` : vérifie les JWT Supabase Auth via
+  `SUPABASE_JWKS_URL` (clés asymétriques, `jose`), aucun secret partagé.
+- `JwtAuthGuard` + `PermissionsGuard`, tous deux globaux (`APP_GUARD`),
+  dans cet ordre : authentification (sauf `@Public()`), puis vérification
+  RBAC (sauf si aucune `@RequirePermissions(...)` déclarée). Le contexte
+  RBAC (`roleKey` + `permissions: string[]`) est résolu à chaque requête
+  depuis les tables réelles (`users` → `roles` → fonction SQL
+  `get_role_permissions`), jamais mis en cache côté application.
+- Modules `users` (`/users/me`, `/users` [users.read/users.manage],
+  `/users/:id/role`) et `roles` (`/roles` [roles.read]). `UsersService.create()`
+  crée un vrai utilisateur Supabase Auth (mot de passe temporaire jamais
+  communiqué) puis déclenche `resetPasswordForEmail` — l'utilisateur choisit
+  son propre mot de passe via l'email Supabase natif.
+- Permissions Phase 3 seedées (migration `20260927100001`) : `users.read`,
+  `users.manage`, `roles.read` — assignées à `SUPER_ADMIN`/`ADMIN`
+  (toutes) et `DIRECTOR` (lecture seule). Aucune permission spéculative
+  pour un module pas encore construit.
+- `supabase/bootstrap-admin.mjs` : crée le tout premier utilisateur (rôle
+  au choix) via l'API Admin Supabase — outil de bootstrap, pas une
+  fonctionnalité applicative.
+
+Frontend (`apps/web`) :
+- `src/lib/supabase/{client,server}.ts` (SDK Supabase Auth uniquement,
+  jamais pour des données métier), `src/middleware.ts` (protection de
+  route + refresh de session), pages `/login`, `/forgot-password`,
+  `/reset-password`, `/dashboard` (Server Component qui appelle
+  `GET /users/me` côté serveur avec le token de session).
+- Contrat partagé `CurrentUserResponse` ajouté à `packages/types` pour
+  éviter de redéfinir la forme de la réponse aux deux bouts.
+
+**Bugs réels trouvés et corrigés pendant cette phase** (aucun n'était
+visible en local tant que le code n'avait pas tourné pour de vrai) :
+1. `outDir` d'un tsconfig de base partagé se résolvant relativement au
+   fichier qui le déclare (déjà noté Phase 0, revérifié ici).
+2. `packages/types`/`packages/shared` n'avaient pas d'étape de build :
+   Next.js/ts-jest transpilent du `.ts` brut à la volée, mais un `node
+   dist/main.js` compilé ne le peut pas (`ERR_MODULE_NOT_FOUND`). Ajout
+   d'un vrai `tsc` build (CommonJS, `dist/`) pour ces deux packages.
+2bis. Sans types Supabase générés, les embeds PostgREST (`roles(key)`)
+   sont typés comme tableaux par défaut, cassant tout typage fiable →
+   génération des types réels (`Database`) depuis le schéma, `.env` ne
+   contenant plus `NODE_ENV=development` (qui cassait le build de
+   production Next.js en entrant en conflit avec sa propre gestion de
+   `NODE_ENV`).
+3. **`useSearchParams()` sans `<Suspense>`** faisait échouer le
+   prerendering de `/login` à la build.
+4. **Le plus important** : `eslint --fix` sur la règle
+   `@typescript-eslint/consistent-type-imports` a converti en `import
+   type` des classes injectées par constructeur (`Reflector`,
+   `ConfigService`, nos propres services) et des DTO utilisés avec
+   `@Body()`. Un `import type` est effacé à la compilation : NestJS perd
+   la référence de classe dans `design:paramtypes`
+   (`emitDecoratorMetadata`), ce qui casse silencieusement l'injection de
+   dépendances ET désactive la validation `class-validator` (la
+   `ValidationPipe` voit `metatype = Object` et **saute la validation sans
+   erreur**). Corrigé fichier par fichier, puis règle désactivée dans
+   `apps/api/eslint.config.js` (documenté en commentaire) — ne jamais
+   lancer `eslint --fix` sans relire le diff sur un projet NestJS.
+
+Vérifié en conditions réelles (pas seulement "ça compile") :
+- Connexion réelle via Supabase Auth (comptes `admin@kps.agency`
+  SUPER_ADMIN et `viewer@kps.agency` VIEWER créés via le script de
+  bootstrap), `GET /users/me` renvoie le bon rôle/permissions pour chacun.
+- `GET /users` : 200 pour admin (a `users.read`), **403** pour viewer (ne
+  l'a pas) — RBAC piloté par données, pas par un `if (role === ...)`.
+- Sans token : 401. `GET /roles` : 200 pour admin.
+- `POST /users` avec un body invalide (email malformé, rôle inexistant) :
+  **400** avec le détail des erreurs `class-validator` — confirme que la
+  ValidationPipe fonctionne réellement après la correction du bug n°4.
+  Avec un body valide : 201, vrai utilisateur Supabase Auth + profil créés.
+- **Test e2e navigateur réel (Playwright, pas de mock)** : `/` → redirigé
+  vers `/login` (non authentifié) → login réel → redirigé vers
+  `/dashboard` avec le bon nom/email/rôle/permissions affichés → clic sur
+  "Se déconnecter" → redirigé vers `/login` → `/dashboard` de nouveau
+  inaccessible sans session.
+
+Prochaine étape : **Phase 4 — Fondations NestJS** (Swagger/OpenAPI, filtre
+d'exceptions global, logger structuré avec `requestId`, rate limiting) —
+une partie (ValidationPipe global, préfixe `/api/v1`) a déjà été posée en
+Phase 3 par nécessité.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
