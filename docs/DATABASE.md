@@ -250,6 +250,8 @@ qualification_sessions
                                                  -- CREATED, SENT, OPENED, IN_PROGRESS,
                                                  -- COMPLETED, EXPIRED, CANCELLED
   expires_at           timestamptz not null
+  sent_at              timestamptz    -- Phase 10 : horodatage réel du passage à SENT
+  opened_at            timestamptz    -- Phase 10 : 1ère ouverture publique (token)
   started_at           timestamptz
   completed_at         timestamptz
   last_activity_at     timestamptz
@@ -305,6 +307,44 @@ hash et compare.
   de `form_responses` plutôt que d'y écrire un null SQL — la colonne
   `value` est `not null`, et un null JSON authentique (`'null'::jsonb`)
   n'est de toute façon pas ce qu'on veut représenter ici.
+
+### 5ter. Implémentation réelle (Phase 10 — lien public)
+
+- La route publique `/public/qualification/:token` (aucune authentification,
+  `@Public()`) consomme le **même** `QualificationSessionsService` que les
+  routes authentifiées — résolution par `token_hash` au lieu de l'id,
+  jamais l'inverse. La réponse publique
+  (`PublicQualificationSessionResponse`) est un contrat volontairement
+  différent et plus restreint : `status`, `expiresAt`, `contactFirstName`,
+  `serviceName`, `requestReference`, `form`, `responses` — jamais
+  `ai_confidence`, notes internes ou tout champ non destiné au prospect
+  (section 34).
+- Pas de tâche planifiée (cron/BullMQ) dans le projet pour expirer les
+  liens : l'expiration est **auto-corrigée à la lecture**
+  (`withEffectiveStatus`) — quiconque consulte une session dont
+  `expires_at` est dépassé la voit, et la persiste, comme `EXPIRED`.
+  Revers : un lien jamais reconsulté après expiration reste `CREATED`/
+  `IN_PROGRESS` en base indéfiniment (sans conséquence fonctionnelle,
+  juste un statut affiché en retard tant que personne ne l'ouvre).
+- Ouverture publique (`GET` par token) : transition `CREATED`/`SENT` →
+  `OPENED` avec horodatage (`opened_at`), une seule fois (`opened_at`
+  déjà renseigné = pas de re-déclenchement). Ne s'applique jamais aux
+  lectures authentifiées (`GET /qualification-sessions/:id`), qui ne
+  doivent pas compter comme une "ouverture" par le prospect.
+- `POST /requests/:id/qualification-sessions` **fait toujours tourner le
+  token** : si une session active existe déjà pour ce couple demande/
+  formulaire, elle est réutilisée (id stable, réponses déjà enregistrées
+  conservées) mais reçoit un nouveau token + une nouvelle expiration —
+  l'ancien lien devient inutilisable. C'est la même mécanique que
+  `POST .../regenerate` (section 37 : « peut régénérer »), juste
+  déclenchée automatiquement plutôt que sur demande explicite.
+- Prolonger un lien expiré (`POST .../extend`) lui redonne un statut
+  cohérent avec son avancement réel plutôt que de le renvoyer figé à
+  `EXPIRED` : `IN_PROGRESS` si `started_at` est renseigné, sinon `OPENED`
+  si `opened_at` l'est, sinon `CREATED`. La distinction `SENT` n'est pas
+  reconstituée (ce n'est qu'un indicateur de suivi, pas une donnée
+  métier) — un admin qui prolonge un lien jamais envoyé peut simplement
+  le renvoyer à nouveau.
 
 ---
 

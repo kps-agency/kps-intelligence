@@ -193,7 +193,7 @@ describe("Sessions de qualification (intégration réelle)", () => {
     let requestId: string;
     let sessionId: string;
 
-    it("crée une session (CREATED)", async () => {
+    it("crée une session (CREATED) avec une URL publique par token", async () => {
       requestId = await createRequest();
       const response = await http()
         .post(`/api/v1/requests/${requestId}/qualification-sessions`)
@@ -201,17 +201,35 @@ describe("Sessions de qualification (intégration réelle)", () => {
         .send({ formId: testFormId })
         .expect(201);
       sessionId = response.body.id;
-      expect(response.body).toMatchObject({ requestId, formId: testFormId, status: "CREATED" });
+      expect(response.body).toMatchObject({
+        requestId,
+        formId: testFormId,
+        status: "CREATED",
+        sentAt: null,
+        openedAt: null,
+        progressPercent: 0,
+      });
       expect(new Date(response.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+      expect(response.body.qualificationUrl).toContain("/qualification/");
+      // Le token brut ne doit jamais apparaître ailleurs qu'ici — l'id
+      // interne de la session ne doit pas non plus fuiter dans l'URL.
+      expect(response.body.qualificationUrl).not.toContain(sessionId);
     });
 
-    it("un second appel renvoie la même session (idempotence)", async () => {
-      const response = await http()
+    it("un second appel réutilise la même session mais fait tourner le token (id stable, URL différente)", async () => {
+      const first = await http()
         .post(`/api/v1/requests/${requestId}/qualification-sessions`)
         .set(as(adminToken))
         .send({ formId: testFormId })
         .expect(201);
-      expect(response.body.id).toBe(sessionId);
+      const second = await http()
+        .post(`/api/v1/requests/${requestId}/qualification-sessions`)
+        .set(as(adminToken))
+        .send({ formId: testFormId })
+        .expect(201);
+      expect(second.body.id).toBe(sessionId);
+      expect(second.body.id).toBe(first.body.id);
+      expect(second.body.qualificationUrl).not.toBe(first.body.qualificationUrl);
     });
 
     it("le soumettre sans rien répondre échoue (400, champ requis manquant)", async () => {
@@ -307,6 +325,174 @@ describe("Sessions de qualification (intégration réelle)", () => {
         .set(as(viewerToken))
         .send({ value: "x" })
         .expect(403);
+    });
+
+    it("refuse révocation/prolongation/régénération d'une session terminée (COMPLETED)", async () => {
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/revoke`)
+        .set(as(adminToken))
+        .expect(400);
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/extend`)
+        .set(as(adminToken))
+        .expect(400);
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/regenerate`)
+        .set(as(adminToken))
+        .expect(400);
+    });
+
+    it("apparaît dans la liste des sessions de la demande, la plus récente en premier", async () => {
+      const response = await http()
+        .get(`/api/v1/requests/${requestId}/qualification-sessions`)
+        .set(as(adminToken))
+        .expect(200);
+      expect(response.body[0].id).toBe(sessionId);
+      // 1 réponse (companyName) sur 3 champs au total dans le formulaire
+      // (plan a été effacé, proDetails jamais répondu) — la soumission n'a
+      // exigé que le champ requis (companyName), pas la complétion à 100%.
+      expect(response.body[0].progressPercent).toBe(33);
+    });
+  });
+
+  describe("gestion admin du lien (section 37 : marquer envoyé, révoquer, prolonger, régénérer)", () => {
+    let requestId: string;
+    let sessionId: string;
+
+    beforeAll(async () => {
+      requestId = await createRequest();
+      const created = await http()
+        .post(`/api/v1/requests/${requestId}/qualification-sessions`)
+        .set(as(adminToken))
+        .send({ formId: testFormId })
+        .expect(201);
+      sessionId = created.body.id;
+    });
+
+    it("liste vide pour une demande sans lien", async () => {
+      const otherRequestId = await createRequest();
+      const response = await http()
+        .get(`/api/v1/requests/${otherRequestId}/qualification-sessions`)
+        .set(as(adminToken))
+        .expect(200);
+      expect(response.body).toEqual([]);
+    });
+
+    it("404 sur la liste d'une demande inconnue", async () => {
+      await http()
+        .get(`/api/v1/requests/${UNKNOWN_UUID}/qualification-sessions`)
+        .set(as(adminToken))
+        .expect(404);
+    });
+
+    it("refuse la gestion admin à un VIEWER (403)", async () => {
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/mark-sent`)
+        .set(as(viewerToken))
+        .expect(403);
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/revoke`)
+        .set(as(viewerToken))
+        .expect(403);
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/extend`)
+        .set(as(viewerToken))
+        .expect(403);
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/regenerate`)
+        .set(as(viewerToken))
+        .expect(403);
+    });
+
+    it("marque comme envoyé (SENT, sentAt renseigné), refuse un second marquage", async () => {
+      const response = await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/mark-sent`)
+        .set(as(adminToken))
+        .expect(201);
+      expect(response.body.status).toBe("SENT");
+      expect(response.body.sentAt).toBeTruthy();
+
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/mark-sent`)
+        .set(as(adminToken))
+        .expect(400);
+    });
+
+    it("prolonge l'expiration (30 jours par défaut, ou un nombre de jours donné)", async () => {
+      const before = await http()
+        .get(`/api/v1/qualification-sessions/${sessionId}`)
+        .set(as(adminToken))
+        .expect(200);
+
+      const extended = await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/extend`)
+        .set(as(adminToken))
+        .send({ days: 5 })
+        .expect(201);
+      expect(new Date(extended.body.expiresAt).getTime()).toBeGreaterThan(
+        new Date(before.body.expiresAt).getTime(),
+      );
+    });
+
+    it("rejette un nombre de jours hors bornes (400)", async () => {
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/extend`)
+        .set(as(adminToken))
+        .send({ days: 0 })
+        .expect(400);
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/extend`)
+        .set(as(adminToken))
+        .send({ days: 1000 })
+        .expect(400);
+    });
+
+    it("régénère le lien : nouvelle URL, id de session inchangé, réponses conservées", async () => {
+      await http()
+        .put(`/api/v1/qualification-sessions/${sessionId}/responses/companyName`)
+        .set(as(adminToken))
+        .send({ value: "ACME Sàrl" })
+        .expect(200);
+
+      const regenerated = await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/regenerate`)
+        .set(as(adminToken))
+        .expect(201);
+      expect(regenerated.body.id).toBe(sessionId);
+      expect(regenerated.body.qualificationUrl).toContain("/qualification/");
+      // La progression déjà faite est conservée malgré la rotation du token.
+      expect(regenerated.body.progressPercent).toBeGreaterThan(0);
+
+      const detail = await http()
+        .get(`/api/v1/qualification-sessions/${sessionId}`)
+        .set(as(adminToken))
+        .expect(200);
+      expect(detail.body.responses).toMatchObject({ companyName: "ACME Sàrl" });
+    });
+
+    it("révoque le lien (CANCELLED), refuse une seconde révocation", async () => {
+      const response = await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/revoke`)
+        .set(as(adminToken))
+        .expect(201);
+      expect(response.body.status).toBe("CANCELLED");
+
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/revoke`)
+        .set(as(adminToken))
+        .expect(400);
+    });
+
+    it("un lien révoqué refuse prolongation et écriture", async () => {
+      await http()
+        .post(`/api/v1/qualification-sessions/${sessionId}/extend`)
+        .set(as(adminToken))
+        .expect(400);
+      await http()
+        .put(`/api/v1/qualification-sessions/${sessionId}/responses/companyName`)
+        .set(as(adminToken))
+        .send({ value: "x" })
+        .expect(400);
     });
   });
 

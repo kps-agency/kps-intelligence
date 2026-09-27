@@ -49,8 +49,8 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | ai | `POST /api/v1/requests/:id/analyze`, `GET /api/v1/requests/:id/analyses` (module `ai` interne, pas de base path propre — voir `docs/AI.md`) | 8 |
 | services | `GET/PATCH /api/v1/services`, `/api/v1/services/:id` (catalogue pré-seedé, pas de création) | 9 |
 | forms | `/api/v1/forms`, `/api/v1/forms/:formId/steps(/:stepId)`, `/api/v1/forms/:formId/steps/:stepId/fields(/:fieldId)`, `.../reorder` (form builder générique) | 9 |
-| qualification-sessions | `POST /api/v1/requests/:id/qualification-sessions`, `GET /api/v1/qualification-sessions/:id`, `PUT .../responses/:fieldKey`, `POST .../submit` — **authentifié uniquement** (remplir une qualification depuis la fiche demande) | 9 |
-| qualification (public) | route publique par token `/api/v1/public/qualification/:token` — au-dessus du même service que `qualification-sessions` | 10 |
+| qualification-sessions | **Authentifié** — `POST /api/v1/requests/:id/qualification-sessions` (crée ou fait tourner le token d'une session active), `GET /api/v1/requests/:id/qualification-sessions` (liste/suivi), `GET /api/v1/qualification-sessions/:id`, `PUT .../responses/:fieldKey`, `POST .../submit`, `.../mark-sent`, `.../revoke`, `.../extend`, `.../regenerate` (section 37) | 9-10 |
+| qualification (public) | **Sans authentification** (`@Public()`) — `GET /api/v1/public/qualification/:token`, `PUT .../responses/:fieldKey`, `POST .../submit` ; résolution par token uniquement (jamais par id), au-dessus du même `QualificationSessionsService` | 10 |
 | email | webhook `/api/v1/webhooks/email` | 11 |
 | whatsapp | webhook `/api/v1/webhooks/whatsapp` | 12 |
 | events | `/api/v1/events` (lecture timeline) | 13 |

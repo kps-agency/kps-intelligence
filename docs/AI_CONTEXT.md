@@ -658,8 +658,101 @@ trois surfaces (services/forms/qualification), axe sans violation sur
 les 4 nouvelles pages (un `aria-progressbar-name` manquant trouvé et
 corrigé).
 
-Prochaine étape : **Phase 10 — Qualification links (page publique)**.
+## Phase 10 — Qualification links (page publique)
+
 Pas de checkpoint externe requis.
+
+Backend (`apps/api/src/qualification-sessions/`) :
+- Nouvelle route publique **sans authentification**
+  (`@Public()`) : `PublicQualificationController`
+  (`GET/PUT/POST /public/qualification/:token/...`) — résout la session
+  par `token_hash` (jamais par id) et consomme le **même**
+  `QualificationSessionsService` que les routes authentifiées de la
+  Phase 9, pas de logique dupliquée. Contrat de réponse volontairement
+  restreint (`PublicQualificationSessionResponse`) : statut, expiration,
+  prénom du contact, nom du service, référence de la demande, formulaire,
+  réponses — jamais de score IA ni de champ interne (section 34).
+- `POST /requests/:id/qualification-sessions` **fait maintenant toujours
+  tourner le token** : une session active existante pour ce couple
+  demande/formulaire est réutilisée (réponses déjà enregistrées
+  conservées) mais reçoit un nouveau token et une URL fraîche —
+  `QualificationSessionCreatedResponse.qualificationUrl` est la **seule**
+  occasion de récupérer le lien en clair (seul son hash SHA-256 est
+  stocké, jamais le token brut).
+- Gestion admin du lien (section 37) : `mark-sent` (CREATED→SENT),
+  `revoke` (→CANCELLED), `extend` (prolonge l'expiration, réactive un
+  lien EXPIRED avec un statut cohérent avec son avancement réel),
+  `regenerate` (fait tourner le token sans perdre les réponses déjà
+  saisies). Nouvel endpoint `GET /requests/:id/qualification-sessions`
+  (liste, la plus récente en premier) pour le suivi côté fiche demande.
+- Suivi (section 38) : colonnes `sent_at`/`opened_at` ajoutées (migration
+  `600001`/`600002`), plus `progressPercent` calculé (réponses
+  enregistrées / total des champs du formulaire, toutes étapes
+  confondues). Pas de tâche planifiée dans le projet pour expirer les
+  liens : l'expiration est **auto-corrigée à la lecture**
+  (`withEffectiveStatus`) — quiconque consulte une session expirée la
+  voit, et la persiste, comme `EXPIRED`.
+- Ouvrir le lien public (même en lecture seule) fait passer
+  `CREATED`/`SENT` → `OPENED` une seule fois (`opened_at` déjà renseigné
+  = pas de re-déclenchement) — jamais sur les lectures authentifiées, qui
+  ne comptent pas comme une ouverture par le prospect.
+
+**Bug d'environnement réel trouvé, pas dans le code applicatif** : `.env`
+avait `PUBLIC_QUALIFICATION_URL=http://localhost:3001/qualification` —
+même dérive de port que `APP_URL` en Phase 9. Corrigé ; les liens générés
+pointent maintenant réellement vers `apps/web` (port 3000).
+
+**35 tests d'intégration réels** sur `qualification-sessions.e2e-spec.ts`
+(étendu : liste, mark-sent, revoke, extend, regenerate, y compris les
+bornes 1-365 jours et le blocage sur une session COMPLETED) et un nouveau
+`public-qualification.e2e-spec.ts` (7 tests, **aucun token
+d'authentification envoyé** — exactement comme un vrai prospect) :
+contrat public minimal vérifié champ par champ, transition OPENED réelle,
+validation de type par le vrai formulaire de test, cycle complet jusqu'à
+COMPLETED avec mise à jour du statut de la demande
+(`RESPONSE_RECEIVED`, jamais en régression d'un statut déjà plus avancé),
+salutation avec prénom de contact réel, lien révoqué lisible mais en
+lecture seule, expiration forcée en base puis reconsultée (EXPIRED) et
+réactivée (extend). Les 141 tests des 7 fichiers e2e passent sans
+régression.
+
+Frontend : `apps/web/src/app/qualification/[token]/` — page publique
+autonome (son propre `layout.tsx` avec `Providers`, en dehors du groupe
+`(app)` donc sans sidebar), salutation section 24, écran de confirmation
+section 34 (aucune fuite interne), et les états lien révoqué/expiré
+affichés explicitement plutôt qu'une erreur brute. Le moteur de rendu
+multi-étapes a été extrait en composants partagés
+(`MultiStepQualificationForm`, `QualificationField`,
+`lib/qualification-form-logic.ts`) réutilisés à l'identique par le runner
+authentifié (Phase 9) et la page publique — un seul endroit pour la
+logique de visibilité conditionnelle et le rendu par type de champ. La
+carte « Qualification » de `/requests/[id]` a été entièrement refaite :
+liste des sessions avec suivi (Envoyé/Ouvert/Commencé/Progression/
+Complété, section 38), affichage du lien en clair une seule fois après
+génération/régénération (jamais persisté côté client au-delà du rendu),
+et actions admin (marquer envoyé, prolonger, régénérer, révoquer).
+
+**Bug d'accessibilité réel trouvé (pas seulement en Phase 10 — un cas
+préexistant de la Phase 9 découvert en même temps)** : `<dl>` avec des
+`<div>` enveloppant chaque paire `<dt>`/`<dd>` viole la règle
+"definition-list" (axe exige que `<dt>`/`<dd>` soient des enfants directs
+de `<dl>`). Corrigé dans la carte de suivi (remplacé par des `<div>`
+simples, ce n'était pas une vraie liste de définitions) et dans le résumé
+interne de qualification complétée (dt/dd en enfants directs via
+`Fragment`, sans wrapper).
+
+Vérifié en conditions réelles (Playwright, deux navigateurs séparés — un
+pour l'admin connecté, un pour le prospect sans aucune session, exactement
+la situation réelle) : génération du lien, marquage envoyé, ouverture
+publique avec salutation et logique conditionnelle réellement testée dans
+le formulaire WEBSITE (masqué/affiché selon la réponse), soumission,
+confirmation sans fuite interne, retour admin avec suivi à jour,
+génération d'un second lien après complétion, révocation — 13 contrôles,
+axe sans violation sur les deux pages (admin et publique).
+
+Prochaine étape : **Phase 11 — Email (ingestion + envoi)**. Checkpoint
+externe #3 à franchir avant de commencer : choisir et configurer un
+provider email avec l'utilisateur.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

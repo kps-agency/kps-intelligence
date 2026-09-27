@@ -389,12 +389,13 @@ export interface UpdateFormFieldRequest {
   conditionalLogic?: FormFieldCondition | null;
 }
 
-// ---- Sessions de qualification (section 22) ----
+// ---- Sessions de qualification (sections 22-23-37-38) ----
 //
-// Exposées uniquement via des routes authentifiées en Phase 9 (remplir
-// une qualification au nom d'un client, depuis la fiche demande). La
-// Phase 10 ajoutera la route publique par token (/qualification/:token)
-// au-dessus de cette même session — pas de duplication de logique.
+// Créées et remplissables via des routes authentifiées depuis la Phase 9
+// (au nom d'un client, depuis la fiche demande). La Phase 10 ajoute la
+// route publique par token (/qualification/:token) au-dessus de la même
+// session — sans dupliquer la logique — plus le suivi (section 38) et la
+// gestion admin du lien (révoquer/prolonger/régénérer, section 37).
 
 export interface QualificationSessionResponse {
   id: string;
@@ -402,10 +403,24 @@ export interface QualificationSessionResponse {
   formId: string;
   status: QualificationSessionStatus;
   expiresAt: string;
+  sentAt: string | null;
+  openedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
   lastActivityAt: string | null;
+  // Proportion de champs du formulaire (toutes étapes confondues) ayant
+  // une réponse non vide — indicateur de suivi (section 38), pas une
+  // mesure exacte de complétion (ignore la visibilité conditionnelle).
+  progressPercent: number;
   createdAt: string;
+}
+
+// Réponse de POST création et de POST régénération : contient l'URL
+// publique complète. Le token brut n'est jamais stocké ni retrouvable
+// ensuite (seul son hash SHA-256 l'est) — cette réponse est donc la
+// SEULE occasion de le récupérer.
+export interface QualificationSessionCreatedResponse extends QualificationSessionResponse {
+  qualificationUrl: string;
 }
 
 // Réponse de GET /qualification-sessions/:id : la session, le formulaire
@@ -422,9 +437,32 @@ export interface CreateQualificationSessionRequest {
   formId: string;
 }
 
-// Corps de PUT /qualification-sessions/:id/responses/:fieldKey.
+// Corps de POST /qualification-sessions/:id/extend. Sans `days`, prolonge
+// de QUALIFICATION_LINK_DEFAULT_EXPIRY_DAYS (packages/shared) à partir
+// d'aujourd'hui ou de l'expiration actuelle, la plus tardive des deux.
+export interface ExtendQualificationSessionRequest {
+  days?: number;
+}
+
+// Corps de PUT /qualification-sessions/:id/responses/:fieldKey et de
+// PUT /public/qualification/:token/responses/:fieldKey.
 export interface SaveFormResponseRequest {
   value: unknown;
+}
+
+// ---- Page publique de qualification (sections 23-24-34) ----
+//
+// Contrat volontairement minimal et différent du contrat authentifié :
+// jamais de score IA, de notes internes, de profil interne ou de tout
+// champ qui ne serait pas déjà destiné au prospect lui-même.
+export interface PublicQualificationSessionResponse {
+  status: QualificationSessionStatus;
+  expiresAt: string;
+  contactFirstName: string | null;
+  serviceName: string | null;
+  requestReference: string;
+  form: FormResponse;
+  responses: Record<string, unknown>;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

@@ -995,7 +995,9 @@ export type Database = {
           id: string
           language: string | null
           last_activity_at: string | null
+          opened_at: string | null
           request_id: string
+          sent_at: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["qualification_session_status"]
           token_hash: string
@@ -1009,7 +1011,9 @@ export type Database = {
           id?: string
           language?: string | null
           last_activity_at?: string | null
+          opened_at?: string | null
           request_id: string
+          sent_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["qualification_session_status"]
           token_hash: string
@@ -1023,7 +1027,9 @@ export type Database = {
           id?: string
           language?: string | null
           last_activity_at?: string | null
+          opened_at?: string | null
           request_id?: string
+          sent_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["qualification_session_status"]
           token_hash?: string
