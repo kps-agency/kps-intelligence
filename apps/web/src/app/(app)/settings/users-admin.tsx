@@ -115,7 +115,7 @@ export function UsersAdmin() {
         )}
 
         {users.isPending && (
-          <div aria-busy="true" aria-label="Chargement des utilisateurs" className="flex flex-col gap-2">
+          <div role="status" aria-label="Chargement des utilisateurs" className="flex flex-col gap-2">
             <Skeleton className="h-10" />
             <Skeleton className="h-10" />
             <Skeleton className="h-10" />

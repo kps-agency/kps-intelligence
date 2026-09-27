@@ -6,7 +6,9 @@ import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module";
+import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
+import { ContactsModule } from "./contacts/contacts.module";
 import { HealthModule } from "./health/health.module";
 import { RolesModule } from "./roles/roles.module";
 import { SupabaseModule } from "./supabase/supabase.module";
@@ -56,6 +58,8 @@ import { UsersModule } from "./users/users.module";
     HealthModule,
     UsersModule,
     RolesModule,
+    ClientsModule,
+    ContactsModule,
     AuthModule,
   ],
   providers: [

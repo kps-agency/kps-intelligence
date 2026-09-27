@@ -52,6 +52,8 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | email | webhook `/api/v1/webhooks/email` | 11 |
 | whatsapp | webhook `/api/v1/webhooks/whatsapp` | 12 |
 | events | `/api/v1/events` (lecture timeline) | 13 |
+| clients | `/api/v1/clients` | 6 |
+| contacts | `/api/v1/clients/:clientId/contacts`, `/api/v1/contacts` | 6 |
 | notifications | `/api/v1/notifications` | 14 |
 | workflows | `/api/v1/workflows` | 15 |
 | team / skills / matching | `/api/v1/team`, `/api/v1/matching` | 16 |

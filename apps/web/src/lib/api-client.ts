@@ -62,5 +62,8 @@ export async function apiFetch<T>(
     );
   }
 
+  // 204 No Content (ex. DELETE) : aucun corps à parser.
+  if (response.status === 204) return undefined as T;
+
   return (await response.json()) as T;
 }

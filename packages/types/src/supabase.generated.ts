@@ -1690,6 +1690,10 @@ export type Database = {
     Functions: {
       generate_request_reference: { Args: never; Returns: string }
       get_role_permissions: { Args: { p_role_id: string }; Returns: string[] }
+      set_primary_contact: {
+        Args: { p_contact_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       availability_status: "AVAILABLE" | "BUSY" | "UNAVAILABLE"

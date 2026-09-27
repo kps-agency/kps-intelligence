@@ -52,8 +52,20 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Commercial",
     items: [
       { label: "Demandes", href: "/requests", icon: Inbox, available: false, phase: 7 },
-      { label: "Clients", href: "/clients", icon: Building2, available: false, phase: 6 },
-      { label: "Contacts", href: "/contacts", icon: Contact, available: false, phase: 6 },
+      {
+        label: "Clients",
+        href: "/clients",
+        icon: Building2,
+        available: true,
+        requiredPermission: "clients.read",
+      },
+      {
+        label: "Contacts",
+        href: "/contacts",
+        icon: Contact,
+        available: true,
+        requiredPermission: "contacts.read",
+      },
       { label: "Opportunités", href: "/opportunities", icon: Handshake, available: false, phase: 17 },
       { label: "Devis", href: "/quotes", icon: FileText, available: false, phase: 18 },
     ],

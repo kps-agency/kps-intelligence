@@ -1,10 +1,10 @@
 import "reflect-metadata";
-import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
+import { configureApp } from "./app.setup";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -16,14 +16,7 @@ async function bootstrap(): Promise<void> {
     origin: config.getOrThrow<string>("APP_URL"),
     exposedHeaders: ["x-request-id"],
   });
-  app.setGlobalPrefix("api/v1", { exclude: ["health"] });
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  configureApp(app);
 
   if (config.get<string>("APP_ENV") !== "production") {
     const document = SwaggerModule.createDocument(

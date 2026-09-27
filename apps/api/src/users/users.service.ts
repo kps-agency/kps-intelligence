@@ -2,8 +2,10 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { toDbException } from "../common/db-error";
 import { SupabaseService } from "../supabase/supabase.service";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import { assertCanAssignRole } from "./role-assignment.policy";
@@ -65,7 +67,7 @@ export class UsersService {
       .maybeSingle();
 
     if (error) {
-      throw new InternalServerErrorException(error.message);
+      throw toDbException(error);
     }
     const row = data as UserRow | null;
     if (!row || row.status !== "ACTIVE") {
@@ -77,7 +79,7 @@ export class UsersService {
       { p_role_id: row.role_id },
     );
     if (permError) {
-      throw new InternalServerErrorException(permError.message);
+      throw toDbException(permError);
     }
 
     return {
@@ -98,7 +100,7 @@ export class UsersService {
       .eq("id", id)
       .maybeSingle();
 
-    if (error) throw new InternalServerErrorException(error.message);
+    if (error) throw toDbException(error);
     if (!data) throw new NotFoundException("Utilisateur introuvable.");
     return toProfile(data as UserRow);
   }
@@ -110,7 +112,7 @@ export class UsersService {
       .select(USER_SELECT)
       .order("created_at", { ascending: false });
 
-    if (error) throw new InternalServerErrorException(error.message);
+    if (error) throw toDbException(error);
     return (data as UserRow[]).map(toProfile);
   }
 
@@ -143,7 +145,12 @@ export class UsersService {
       if (createError.message.toLowerCase().includes("already")) {
         throw new ConflictException("Un utilisateur avec cet email existe déjà.");
       }
-      throw new InternalServerErrorException(createError.message);
+      // Détail dans les logs seulement : jamais renvoyé au client.
+      new Logger(UsersService.name).error(
+        { message: createError.message, status: createError.status },
+        "Échec de création du compte Auth",
+      );
+      throw new InternalServerErrorException("Création du compte impossible.");
     }
 
     const { data: profileRow, error: insertError } = await client
@@ -160,7 +167,7 @@ export class UsersService {
       .single();
 
     if (insertError) {
-      throw new InternalServerErrorException(insertError.message);
+      throw toDbException(insertError);
     }
 
     await client.auth.resetPasswordForEmail(dto.email);
@@ -200,7 +207,7 @@ export class UsersService {
       .select(USER_SELECT)
       .maybeSingle();
 
-    if (error) throw new InternalServerErrorException(error.message);
+    if (error) throw toDbException(error);
     if (!data) throw new NotFoundException("Utilisateur introuvable.");
     return toProfile(data as UserRow);
   }

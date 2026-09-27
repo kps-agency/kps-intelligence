@@ -1,4 +1,4 @@
-import { UserRole } from "@kps/types";
+import { ClientStatus, UserRole } from "@kps/types";
 
 // Constantes métier partagées, issues de prompt.md (sections 12, 21, 37).
 // Toute règle métier chiffrée (délais, seuils) doit vivre ici plutôt
@@ -26,4 +26,12 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.TECHNICAL_MANAGER]: "Responsable technique",
   [UserRole.TEAM_MEMBER]: "Collaborateur",
   [UserRole.VIEWER]: "Observateur",
+};
+
+/** Libellés d'affichage des statuts client (section 13). */
+export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
+  [ClientStatus.PROSPECT]: "Prospect",
+  [ClientStatus.ACTIVE]: "Actif",
+  [ClientStatus.INACTIVE]: "Inactif",
+  [ClientStatus.CHURNED]: "Perdu",
 };

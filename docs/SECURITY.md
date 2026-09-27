@@ -91,6 +91,25 @@ fonction de désactivation d'utilisateur pour l'instant).
   réel — le token n'apparaît jamais dans les logs.
 - Swagger (`/api/docs`) désactivé quand `APP_ENV=production`.
 
+### Non-fuite des erreurs base de données
+
+`toDbException` (`apps/api/src/common/db-error.ts`, depuis la Phase 6)
+traduit toute erreur Postgres/PostgREST en exception HTTP propre — nom de
+table, contrainte ou requête ne sont jamais renvoyés au client, seulement
+loggés avec le `requestId`. Avant cette phase, `users`/`roles`
+renvoyaient le message d'erreur Supabase brut ; corrigé rétroactivement.
+Tout nouveau service doit passer ses erreurs Supabase par cette fonction,
+jamais par un `InternalServerErrorException(error.message)` direct.
+
+### Recherche : neutralisation de la syntaxe de filtre PostgREST
+
+Un terme de recherche utilisateur est inséré dans un filtre `.or()`
+PostgREST. `toContainsPattern`/`toWordPatterns`
+(`apps/api/src/common/search.ts`) retirent `, ( ) " \ * %` avant de
+construire le motif — sans ça, un terme comme `x,status.eq.CHURNED`
+permettrait d'ajouter une condition arbitraire à la requête. Testé par
+un cas d'intégration dédié (`crm.e2e-spec.ts`).
+
 ## 7. Fichiers (Supabase Storage)
 
 - Contrôle d'accès par entité (un document est lié à une entité et

@@ -1,4 +1,4 @@
-import type { UserRole } from "./enums";
+import type { ClientStatus, RequestSource, UserRole } from "./enums";
 
 // Contrats partagés entre apps/api et apps/web : le frontend type ses
 // appels avec ces formes au lieu de les redéfinir. Ce sont les formes JSON
@@ -38,6 +38,110 @@ export interface CreateUserRequest {
   lastName: string;
   roleKey: UserRole;
   phone?: string;
+}
+
+// ---- Pagination (toutes les listes paginées de l'API) ----
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: { total: number; page: number; limit: number };
+}
+
+// ---- CRM : clients ----
+
+export interface ClientResponse {
+  id: string;
+  companyName: string;
+  country: string | null;
+  city: string | null;
+  industry: string | null;
+  website: string | null;
+  email: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  status: ClientStatus;
+  source: RequestSource | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Élément de GET /clients : le client + le nombre de contacts.
+export interface ClientListItemResponse extends ClientResponse {
+  contactsCount: number;
+}
+
+// Corps de POST /clients (les champs optionnels vides sont omis).
+export interface CreateClientRequest {
+  companyName: string;
+  country?: string;
+  city?: string;
+  industry?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  status?: ClientStatus;
+  source?: RequestSource;
+  notes?: string;
+}
+
+// Corps de PATCH /clients/:id : `null` efface un champ optionnel.
+export interface UpdateClientRequest {
+  companyName?: string;
+  country?: string | null;
+  city?: string | null;
+  industry?: string | null;
+  website?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  status?: ClientStatus;
+  source?: RequestSource | null;
+  notes?: string | null;
+}
+
+// ---- CRM : contacts ----
+
+export interface ContactResponse {
+  id: string;
+  clientId: string;
+  // Nom de la société, renseigné dans les listes qui traversent les clients.
+  clientCompanyName: string | null;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  position: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Corps de POST /clients/:clientId/contacts. Le premier contact d'un client
+// devient principal automatiquement.
+export interface CreateContactRequest {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  position?: string;
+  isPrimary?: boolean;
+}
+
+// Corps de PATCH /contacts/:id : `null` efface un champ optionnel.
+export interface UpdateContactRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  position?: string | null;
+  // Seul `true` est accepté : on change de contact principal en en
+  // désignant un autre.
+  isPrimary?: true;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

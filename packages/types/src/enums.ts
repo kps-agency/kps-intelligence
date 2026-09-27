@@ -14,6 +14,13 @@ export enum UserRole {
   VIEWER = "VIEWER",
 }
 
+export enum ClientStatus {
+  PROSPECT = "PROSPECT",
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  CHURNED = "CHURNED",
+}
+
 export enum ServiceSlug {
   WEBSITE = "WEBSITE",
   ECOMMERCE = "ECOMMERCE",

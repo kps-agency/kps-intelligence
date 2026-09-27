@@ -1,4 +1,5 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
+import { toDbException } from "../common/db-error";
 import { SupabaseService } from "../supabase/supabase.service";
 
 export interface RoleSummary {
@@ -19,7 +20,7 @@ export class RolesService {
       .select("id, key, label, description")
       .order("key");
 
-    if (error) throw new InternalServerErrorException(error.message);
+    if (error) throw toDbException(error);
     return data as RoleSummary[];
   }
 }

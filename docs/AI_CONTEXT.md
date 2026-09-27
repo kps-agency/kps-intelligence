@@ -352,8 +352,77 @@ Points d'attention connus :
   (SUPER_ADMIN) et `viewer@kps.agency` (VIEWER). `ui-admin@kps.agency`
   (ADMIN) est recréable via `node supabase/bootstrap-admin.mjs`.
 
-Prochaine étape : **Phase 6 — Clients & Contacts** (premier module CRM :
-API + pages `/clients`, `/clients/[id]`, `/contacts`).
+**Phase 6 — Clients & Contacts : terminée.**
+
+Backend (`apps/api`) :
+- Modules `clients` (`GET/POST /clients`, `GET/PATCH /clients/:id`) et
+  `contacts` (`GET/POST /clients/:clientId/contacts`, `GET/PATCH/DELETE
+  /contacts/:id`, `GET /contacts` transverse). Permissions dédiées
+  (`clients.read/manage`, `contacts.read/manage`) seedées uniquement sur
+  les rôles qui en ont l'usage (migration `20260927200001`).
+- **Pas de suppression de client** (il porte l'historique commercial) :
+  archivage par statut. Les contacts, eux, sont supprimables.
+- Contact principal : bascule atomique via la fonction SQL
+  `set_primary_contact` (verrou sur la ligne du client), jamais deux
+  appels séparés — testé avec deux bascules concurrentes réelles. Un
+  index unique en base (`uniq_contacts_primary_per_client`, posé dès la
+  Phase 0) interdit deux principaux même en contournant l'API. L'API
+  n'accepte que `isPrimary: true` en entrée : on désigne un nouveau
+  principal, on ne retire jamais le statut directement (empêche un client
+  sans principal).
+- `AllExceptionsFilter` étendu avec `toDbException` (`apps/api/src/common/db-error.ts`) :
+  toute erreur Postgres/PostgREST est traduite en exception HTTP propre,
+  jamais renvoyée telle quelle au client (repris aussi dans `users`/`roles`,
+  qui fuyaient le message brut avant cette phase).
+- Recherche : `toContainsPattern`/`toWordPatterns`
+  (`apps/api/src/common/search.ts`) neutralisent la syntaxe de filtre
+  PostgREST (`,()"\*%`) pour empêcher l'injection de conditions
+  supplémentaires via le paramètre `search`.
+- **34 tests d'intégration réels** (`apps/api/test/crm.e2e-spec.ts`, contre
+  la vraie base, `pnpm --filter @kps/api test:e2e` — nécessite
+  `E2E_ADMIN_*`/`E2E_VIEWER_*` dans `.env`) : RBAC, RLS, validation,
+  pagination/tri/recherche, cycle de vie contact (principal automatique,
+  bascule, contrainte unique, suppression avec transfert du rôle
+  principal), cascade de suppression, non-fuite des erreurs base.
+
+Frontend (`apps/web`) : pages `/clients`, `/clients/[id]` (infos éditables
++ contacts), `/contacts` (liste transverse) ; composants `Textarea` et
+`ConfirmDialog` ajoutés à `packages/ui`. `PaginationControls` et
+`useDebouncedValue` réutilisables pour toute future liste paginée.
+
+**Trois bugs réels trouvés et corrigés par le test navigateur** (pas par
+le typecheck) :
+1. **Accessibilité** : `aria-label` sur un `<div>` sans `role` (invalide
+   pour ARIA) sur les 4 zones de chargement (`role="status"` manquant) —
+   présent depuis la Phase 5 (`users-admin.tsx`), jamais détecté parce que
+   le test précédent n'avait jamais capturé l'état de chargement lui-même.
+2. **Recherche de contacts cassée pour un nom complet** : prénom et nom
+   sont deux colonnes ; chercher "Bob Durand" ne matchait aucune des deux
+   entièrement → 0 résultat alors que le contact existe. Corrigé en
+   découpant la recherche en mots (chaque mot doit matcher un champ,
+   `toWordPatterns`).
+3. **Condition de course dans l'invalidation TanStack Query** (le plus
+   subtil) : `invalidateContacts` appelait `invalidateQueries` sur
+   `["clients","contacts",clientId]` PUIS sur `["clients"]`, qui la
+   recouvre déjà par préfixe — deux requêtes concurrentes pour la même
+   donnée, dont la plus lente pouvait écraser la plus fraîche. Symptôme :
+   après avoir désigné un nouveau contact principal, l'ancien restait
+   parfois affiché comme principal. Repéré uniquement après plusieurs
+   exécutions du test (pas systématique), confirmé par traçage réseau
+   horodaté, corrigé en supprimant l'invalidation redondante. Revérifié
+   sur plusieurs exécutions consécutives après correction.
+
+Point d'attention infrastructure (pas un bug produit) : des exécutions
+répétées et rapprochées du test navigateur ont fini par déclencher un
+ralentissement du endpoint de login Supabase Auth (jusqu'à ~27s au lieu de
+~1s) — limitation de débit côté Supabase liée au volume de connexions de
+test, pas à l'application (confirmé : `/health`, qui ne dépend pas de
+Supabase Auth, répondait en 3ms pendant le ralentissement). À espacer les
+campagnes de tests e2e si ça se reproduit.
+
+Prochaine étape : **Phase 7 — Requests (objet central) + inbox manuelle**
+(module `requests`, source `MANUAL` d'abord, page `/requests`,
+`/requests/[id]`).
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
