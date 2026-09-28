@@ -233,6 +233,7 @@ export class RequestsService {
     emailMessageId?: string | null;
     emailThreadId?: string | null;
     whatsappMessageId?: string | null;
+    websiteSubmissionId?: string | null;
   }): Promise<{ request: RequestResponse; alreadyExisted: boolean }> {
     const client = this.supabase.getClient();
 
@@ -240,7 +241,9 @@ export class RequestsService {
       ? { column: "email_message_id" as const, value: params.emailMessageId }
       : params.whatsappMessageId
         ? { column: "whatsapp_message_id" as const, value: params.whatsappMessageId }
-        : null;
+        : params.websiteSubmissionId
+          ? { column: "website_submission_id" as const, value: params.websiteSubmissionId }
+          : null;
 
     if (idempotencyKey) {
       const { data: existing, error: existingError } = await client
@@ -268,6 +271,7 @@ export class RequestsService {
         email_message_id: params.emailMessageId ?? null,
         email_thread_id: params.emailThreadId ?? null,
         whatsapp_message_id: params.whatsappMessageId ?? null,
+        website_submission_id: params.websiteSubmissionId ?? null,
       })
       .select("id")
       .single();

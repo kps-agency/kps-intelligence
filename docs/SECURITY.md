@@ -67,11 +67,15 @@ fonction de désactivation d'utilisateur pour l'instant).
   brute-force de token, même si l'espace de token rend cela déjà
   impraticable — défense en profondeur).
 
-## 5. Webhooks (email / WhatsApp)
+## 5. Webhooks (email / WhatsApp / sites web)
 
 - Vérification de signature obligatoire (HMAC pour WhatsApp Cloud API
   avec `WHATSAPP_VERIFY_TOKEN`/app secret ; vérification d'origine pour
   le provider email selon celui retenu en Phase 11).
+- Sites web (`/webhooks/website/:site`) : HMAC-SHA256 d'un secret propre
+  à chaque site (`WEBSITE_WEBHOOK_SECRETS`, révocable site par site) sur
+  `"<timestamp>.<corps brut>"`, horodatage à ±5 min (anti-rejeu), vérifié
+  par une garde **avant** la validation du DTO. Site sans secret → 503.
 - Idempotence stricte sur l'identifiant de message externe (voir
   `DATABASE.md` §12) — un replay de webhook ne doit jamais créer de
   doublon ni renvoyer une notification en double.

@@ -1141,6 +1141,34 @@ restent à faire dès que le compte Meta existe.
 4. ⏳ Compte Meta WhatsApp Business Cloud API — code prêt (Phase 12),
    credentials et tests réels en attente.
 
+## Intégration des sites web (akoraweb) — demandes reçues par API
+
+Les formulaires du site akoraweb (dépôt `KPS/akoraweb`) —
+demande de devis (`/api/contact`) et brief de refonte LinkedIn — sont
+transmis à KPS en plus de leur enregistrement Supabase et de l'email de
+notification existants (`akoraweb/lib/kps.ts`, non bloquant, timeout 8 s).
+
+Backend (`apps/api/src/website/`) :
+- `POST /api/v1/webhooks/website/:site` signé (voir `docs/API.md` et
+  `docs/SECURITY.md` §5), un secret par site dans `WEBSITE_WEBHOOK_SECRETS`.
+- Demande `source=WEBSITE`, `channel=<site>`, message d'origine = message
+  libre + réponses du formulaire en « libellé : valeur ». Idempotence :
+  `requests.website_submission_id` (migration `20260929100001`).
+- Le prospect a donné son email : une conversation **EMAIL** démarre à son
+  nom, donc les workflows existants (qualification requise → envoi du
+  lien par email → relances) s'appliquent sans changement.
+- Contact existant rattaché par email, puis par téléphone.
+- Réponse immédiate au site ; l'analyse IA tourne en arrière-plan.
+
+Tests : 9 unitaires (signature, fenêtre de rejeu, secrets par site) et
+5 e2e réels (`website.e2e-spec.ts`) : chaîne complète jusqu'au lien de
+qualification envoyé, rejeu idempotent, rattachement au contact,
+signatures refusées, payload invalide.
+
+Limite connue : un envoi qui échoue côté site (KPS injoignable) n'est pas
+rejoué automatiquement — la demande reste dans Supabase akoraweb et dans
+l'email de notification, mais pas dans KPS.
+
 ## Commandes utiles
 
 ```bash
