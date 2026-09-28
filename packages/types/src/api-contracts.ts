@@ -15,6 +15,7 @@ import type {
   ServiceSlug,
   ServiceStatus,
   UserRole,
+  WorkflowRunStatus,
 } from "./enums";
 
 // Contrats partagés entre apps/api et apps/web : le frontend type ses
@@ -531,6 +532,83 @@ export interface UpdateNotificationPreferenceRequest {
   eventType: EventType;
   channel: NotificationChannel;
   enabled: boolean;
+}
+
+// ---- Workflow Engine (sections 39, 45, 46) ----
+
+export type WorkflowConditionOperator =
+  | "eq"
+  | "neq"
+  | "in"
+  | "notIn"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "exists"
+  | "notExists";
+
+export interface WorkflowCondition {
+  field: string;
+  operator: WorkflowConditionOperator;
+  value?: string | number | boolean | (string | number)[];
+}
+
+export interface WorkflowStep {
+  delayMinutes: number;
+  conditions: WorkflowCondition[];
+  action: { type: string; params: Record<string, string | number | boolean> };
+}
+
+export interface WorkflowResponse {
+  id: string;
+  key: string | null;
+  name: string;
+  description: string | null;
+  triggerEvent: EventType;
+  conditions: WorkflowCondition[];
+  steps: WorkflowStep[];
+  cancelOn: EventType[];
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface WorkflowStepLogEntry {
+  index: number;
+  status: "DONE" | "SKIPPED" | "FAILED";
+  at: string;
+  detail: string | null;
+}
+
+export interface WorkflowRunResponse {
+  id: string;
+  workflowId: string;
+  requestId: string | null;
+  requestReference: string | null;
+  status: WorkflowRunStatus;
+  currentStep: number;
+  nextStepAt: string | null;
+  stepsLog: WorkflowStepLogEntry[];
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+// GET /workflows/vocabulary : ce qu'une définition peut contenir.
+export interface WorkflowVocabularyResponse {
+  fields: { key: string; label: string; type: "string" | "number" | "boolean" }[];
+  actions: { type: string; label: string; params: Record<string, readonly string[]> }[];
+}
+
+// Corps de PUT /workflows/:id : la définition complète, revalidée par le
+// serveur (champs, opérateurs et actions autorisés).
+export interface UpdateWorkflowRequest {
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  conditions: WorkflowCondition[];
+  steps: WorkflowStep[];
+  cancelOn: EventType[];
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

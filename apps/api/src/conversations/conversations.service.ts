@@ -159,7 +159,12 @@ export class ConversationsService {
     if (error && error.code !== "23505") throw toDbException(error);
   }
 
-  async findReplyTarget(requestId: string): Promise<ReplyTarget | null> {
+  // `channel` : le dernier message entrant sur ce canal précis (ex. une
+  // relance par email alors que le prospect a aussi écrit par WhatsApp).
+  async findReplyTarget(
+    requestId: string,
+    channel?: ConversationChannel,
+  ): Promise<ReplyTarget | null> {
     const client = this.supabase.getClient();
     const { data: conversations, error } = await client
       .from("conversations")
@@ -176,7 +181,7 @@ export class ConversationsService {
         conversations.map((c) => c.id),
       )
       .eq("direction", "INBOUND")
-      .in("channel", ["EMAIL", "WHATSAPP"])
+      .in("channel", channel ? [channel] : ["EMAIL", "WHATSAPP"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -21,6 +21,42 @@ export class WhatsappService {
   constructor(private readonly config: ConfigService) {}
 
   async sendText(to: string, body: string): Promise<string> {
+    return this.send(to, { type: "text", text: { preview_url: true, body } });
+  }
+
+  // Message hors de la fenêtre de 24 h suivant le dernier message du
+  // prospect (ex. relance, section 39) : Meta n'accepte qu'un template
+  // approuvé. Paramètres du corps, dans l'ordre : prénom, service, lien.
+  async sendQualificationReminder(
+    to: string,
+    params: QualificationWhatsappParams,
+  ): Promise<string> {
+    const template = this.config.get<string>("WHATSAPP_REMINDER_TEMPLATE");
+    if (!template) {
+      throw new ServiceUnavailableException(
+        "Template WhatsApp de relance non configuré (WHATSAPP_REMINDER_TEMPLATE).",
+      );
+    }
+    return this.send(to, {
+      type: "template",
+      template: {
+        name: template,
+        language: { code: this.config.get<string>("WHATSAPP_TEMPLATE_LANGUAGE") || "fr" },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: params.contactFirstName ?? "" },
+              { type: "text", text: params.serviceName },
+              { type: "text", text: params.qualificationUrl },
+            ],
+          },
+        ],
+      },
+    });
+  }
+
+  private async send(to: string, message: Record<string, unknown>): Promise<string> {
     const apiUrl = this.config.get<string>("WHATSAPP_API_URL");
     const token = this.config.get<string>("WHATSAPP_ACCESS_TOKEN");
     const phoneNumberId = this.config.get<string>("WHATSAPP_PHONE_NUMBER_ID");
@@ -35,8 +71,7 @@ export class WhatsappService {
         messaging_product: "whatsapp",
         recipient_type: "individual",
         to,
-        type: "text",
-        text: { preview_url: true, body },
+        ...message,
       }),
       signal: AbortSignal.timeout(15000),
     });

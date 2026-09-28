@@ -216,6 +216,17 @@ export enum EventType {
   // Ajouts Phase 14.
   REQUEST_ASSIGNED = "REQUEST_ASSIGNED",
   TEAM_NOTIFIED = "TEAM_NOTIFIED",
+  // Ajout Phase 15 (relances, section 39).
+  QUALIFICATION_REMINDER_SENT = "QUALIFICATION_REMINDER_SENT",
+}
+
+export enum WorkflowRunStatus {
+  PENDING = "PENDING",
+  RUNNING = "RUNNING",
+  WAITING = "WAITING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
 }
 
 export enum EventEntityType {

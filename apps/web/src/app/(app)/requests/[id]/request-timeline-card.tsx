@@ -95,6 +95,8 @@ function describe(event: TimelineEventResponse): string {
       return "Demande clôturée";
     case "REQUEST_STATUS_CHANGED":
       return `Statut : ${statusLabel(p.from)} → ${statusLabel(p.to)}`;
+    case "QUALIFICATION_REMINDER_SENT":
+      return `Relance envoyée ${CHANNEL_LABELS[text(p.channel)] ?? ""}`.trim();
     case "REQUEST_ASSIGNED":
       return `Demande assignée à ${text(p.assignedUserName) || "un utilisateur"}`;
     case "TEAM_NOTIFIED":

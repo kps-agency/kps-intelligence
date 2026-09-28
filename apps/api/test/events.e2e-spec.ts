@@ -145,7 +145,11 @@ describe("Event Bus et timeline (intégration réelle)", () => {
 
     it("la timeline reconstitue réception → analyse → service, chaque étape attribuée", async () => {
       const events = await timeline(requestId);
-      const types = events.map((e) => e.type);
+      // Les traces de notification (Phase 14) réagissent aux étapes de
+      // façon asynchrone et peuvent s'intercaler n'importe où : l'ordre
+      // vérifié ici est celui des étapes du pipeline.
+      const steps = events.filter((e) => e.type !== "TEAM_NOTIFIED");
+      const types = steps.map((e) => e.type);
 
       expect(types.slice(0, 4)).toEqual([
         "REQUEST_RECEIVED",
@@ -154,7 +158,7 @@ describe("Event Bus et timeline (intégration réelle)", () => {
         "SERVICE_DETECTED",
       ]);
 
-      const [received, started, completed, detected] = events;
+      const [received, started, completed, detected] = steps;
       expect(received!.actorType).toBe("USER");
       expect(received!.actorName).toBeTruthy();
       expect(received!.payload.source).toBe("MANUAL");

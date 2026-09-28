@@ -1322,6 +1322,7 @@ export type Database = {
           subject: string
           updated_at: string
           urgency: Database["public"]["Enums"]["priority_level"] | null
+          website_submission_id: string | null
           whatsapp_message_id: string | null
         }
         Insert: {
@@ -1347,6 +1348,7 @@ export type Database = {
           subject: string
           updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
+          website_submission_id?: string | null
           whatsapp_message_id?: string | null
         }
         Update: {
@@ -1372,6 +1374,7 @@ export type Database = {
           subject?: string
           updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
+          website_submission_id?: string | null
           whatsapp_message_id?: string | null
         }
         Relationships: [
@@ -1731,37 +1734,62 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          current_step: number
           error: string | null
           id: string
+          next_step_at: string | null
+          request_id: string | null
           result: Json | null
           started_at: string | null
           status: Database["public"]["Enums"]["workflow_run_status"]
+          steps_log: Json
+          subject_id: string | null
+          subject_type: string | null
           triggering_event_id: string | null
           workflow_id: string
         }
         Insert: {
           completed_at?: string | null
           created_at?: string
+          current_step?: number
           error?: string | null
           id?: string
+          next_step_at?: string | null
+          request_id?: string | null
           result?: Json | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["workflow_run_status"]
+          steps_log?: Json
+          subject_id?: string | null
+          subject_type?: string | null
           triggering_event_id?: string | null
           workflow_id: string
         }
         Update: {
           completed_at?: string | null
           created_at?: string
+          current_step?: number
           error?: string | null
           id?: string
+          next_step_at?: string | null
+          request_id?: string | null
           result?: Json | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["workflow_run_status"]
+          steps_log?: Json
+          subject_id?: string | null
+          subject_type?: string | null
           triggering_event_id?: string | null
           workflow_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workflow_runs_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workflow_runs_triggering_event_id_fkey"
             columns: ["triggering_event_id"]
@@ -1781,35 +1809,55 @@ export type Database = {
       workflows: {
         Row: {
           actions: Json
+          cancel_on: Database["public"]["Enums"]["event_type"][]
           conditions: Json
           created_at: string
+          description: string | null
           id: string
           is_active: boolean
+          key: string | null
           name: string
           trigger_event: Database["public"]["Enums"]["event_type"]
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           actions?: Json
+          cancel_on?: Database["public"]["Enums"]["event_type"][]
           conditions?: Json
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
+          key?: string | null
           name: string
           trigger_event: Database["public"]["Enums"]["event_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           actions?: Json
+          cancel_on?: Database["public"]["Enums"]["event_type"][]
           conditions?: Json
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
+          key?: string | null
           name?: string
           trigger_event?: Database["public"]["Enums"]["event_type"]
           updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workflows_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1876,6 +1924,7 @@ export type Database = {
         | "CONVERSATION_MESSAGE_RECEIVED"
         | "REQUEST_ASSIGNED"
         | "TEAM_NOTIFIED"
+        | "QUALIFICATION_REMINDER_SENT"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -1955,7 +2004,13 @@ export type Database = {
       service_status: "ACTIVE" | "INACTIVE" | "COMING_SOON"
       task_status: "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELLED"
       user_status: "ACTIVE" | "INACTIVE" | "INVITED" | "SUSPENDED"
-      workflow_run_status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED"
+      workflow_run_status:
+        | "PENDING"
+        | "RUNNING"
+        | "COMPLETED"
+        | "FAILED"
+        | "WAITING"
+        | "CANCELLED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2127,6 +2182,7 @@ export const Constants = {
         "CONVERSATION_MESSAGE_RECEIVED",
         "REQUEST_ASSIGNED",
         "TEAM_NOTIFIED",
+        "QUALIFICATION_REMINDER_SENT",
       ],
       form_field_type: [
         "TEXT",
@@ -2213,7 +2269,14 @@ export const Constants = {
       service_status: ["ACTIVE", "INACTIVE", "COMING_SOON"],
       task_status: ["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED"],
       user_status: ["ACTIVE", "INACTIVE", "INVITED", "SUSPENDED"],
-      workflow_run_status: ["PENDING", "RUNNING", "COMPLETED", "FAILED"],
+      workflow_run_status: [
+        "PENDING",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "WAITING",
+        "CANCELLED",
+      ],
     },
   },
 } as const

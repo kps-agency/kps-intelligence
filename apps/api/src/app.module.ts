@@ -14,7 +14,7 @@ import { EventsModule } from "./events/events.module";
 import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
 import { NotificationsModule } from "./notifications/notifications.module";
-import { QualificationDispatchModule } from "./qualification-dispatch/qualification-dispatch.module";
+import { WorkflowsModule } from "./workflows/workflows.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
@@ -76,7 +76,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     QualificationSessionsModule,
     EmailModule,
     WhatsappModule,
-    QualificationDispatchModule,
+    WorkflowsModule,
     NotificationsModule,
     AuthModule,
   ],

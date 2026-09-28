@@ -1075,10 +1075,64 @@ tombés pendant la phase (le `.next` écrasé en Phase 13, puis l'API dev
 arrêtée) — **redémarrer `pnpm dev`**, et `docker compose up -d redis`
 avant, désormais requis par l'API.
 
-Prochaine étape : **Phase 15 — Workflow Engine** (TRIGGER → CONDITION →
-ACTION, relances configurables de la section 39). Pas de checkpoint
-externe. Les tests réels WhatsApp (Phase 12) restent à faire dès que le
-compte Meta existe.
+## Phase 15 — Workflow Engine
+
+Détail complet : **`docs/WORKFLOWS.md`**. En bref :
+- Workflows en base (`workflows`, migration `20260929000001`) : QUAND
+  (événement) → SI (conditions) → étapes (délai → conditions réévaluées
+  à l'échéance → action), + `cancel_on`. Vocabulaire fermé
+  (`workflow-definition.ts`) : une définition ne peut exécuter que les
+  actions que le code sait faire ; toute modification est revalidée
+  (400 détaillé).
+- `WorkflowEngine` abonné à tous les événements ; exécutions tracées
+  dans `workflow_runs` (étape courante, échéance, journal par étape) ;
+  une exécution par (workflow, événement) ; une seule chaîne active par
+  objet ; étapes immédiates dans le handler, étapes différées en jobs
+  BullMQ retardés réarmés au démarrage.
+- **Règle codée en dur de la Phase 13 migrée** : le module
+  `qualification-dispatch` est supprimé, remplacé par les workflows
+  livrés `qualification-required` (seuil de confiance 0,6 désormais
+  modifiable) et `qualification-auto-send`. La suite e2e Events de la
+  Phase 13 (dont la chaîne email réelle de bout en bout) passe inchangée.
+- **Relances (section 39)** : workflow `qualification-reminders` —
+  48 h → relance email, 24 h → relance WhatsApp, annulé à l'ouverture /
+  début / complétion / révocation / expiration. Le token étant stocké
+  haché, une relance envoie un **lien neuf** (`withFreshLink`) ; si
+  l'envoi échoue, l'ancien token est restauré (le lien déjà reçu reste
+  valide). Événement dédié `QUALIFICATION_REMINDER_SENT` (sinon la
+  relance relancerait sa propre chaîne). Email de relance dans le fil
+  d'origine. WhatsApp : template Meta approuvé requis hors fenêtre de
+  24 h (`WHATSAPP_REMINDER_TEMPLATE`) — en attente du compte Meta.
+- API `GET /workflows`, `/vocabulary`, `/:id`, `/:id/runs`
+  (`workflows.read` : admins, directeurs), `PUT /:id` (`workflows.manage`
+  : admins). Pas de création/suppression (section 46 : « plus tard »).
+
+Frontend : `/workflows` (liste lisible « Quand … → Après 2 j → Relancer
+le prospect ») et `/workflows/[id]` (Quand / Si / Alors / Annulé dès que,
+édition des délais avec unité, des valeurs de conditions et de
+l'activation pour les admins, tableau des exécutions avec journal).
+
+Tests : 7 unitaires (validation du vocabulaire, évaluation des
+conditions) ; **9 e2e réels** (`workflows.e2e-spec.ts`, délais raccourcis
+en modifiant réellement le workflow par l'API puis restaurés) —
+désactiver/réactiver la qualification sans code, relance email réelle
+retrouvée par IMAP dont le nouveau lien fonctionne et l'ancien est
+invalidé, étape WhatsApp ignorée sans numéro, annulation à l'ouverture
+(aucune relance après l'échéance), remplacement de chaîne après
+régénération, rejeu idempotent, restauration du lien sur échec, RBAC,
+validation. Navigateur réel : 20 contrôles, axe sans violation.
+
+Incidents d'environnement pendant la phase : Docker Desktop arrêté
+(génération des types impossible, **Redis arrêté** — requis par l'API) :
+relancé. Une **autre session Claude** travaille en parallèle dans le même
+dépôt sur l'ingestion des formulaires de sites web (`apps/api/src/website/`,
+migration `20260929100001`) — coordination par messages ; ses fichiers ne
+font pas partie du commit de la Phase 15.
+
+Prochaine étape : **Phase 16 — Matching équipe** (compétences,
+disponibilités, score explicable, recommandation — affectation finale
+humaine). Pas de checkpoint externe. Les tests réels WhatsApp (Phase 12)
+restent à faire dès que le compte Meta existe.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

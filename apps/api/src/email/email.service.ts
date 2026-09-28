@@ -5,6 +5,7 @@ import {
   renderQualificationEmail,
   type QualificationEmailParams,
 } from "./templates/qualification-email";
+import { renderQualificationReminderEmail } from "./templates/qualification-reminder-email";
 
 const logger = new Logger("EmailService");
 
@@ -44,6 +45,26 @@ export class EmailService {
   // dans le même fil chez lui, et sa réponse référencera les deux
   // messages — c'est ce qui permet de la rattacher à la demande existante
   // au lieu d'en créer une nouvelle.
+  async sendQualificationReminderEmail(
+    to: string,
+    params: QualificationEmailParams,
+    thread?: { inReplyTo: string | null },
+  ): Promise<{ messageId: string; subject: string }> {
+    const { subject, text, html } = renderQualificationReminderEmail(params);
+    const inReplyTo = thread?.inReplyTo ?? undefined;
+    const info = await this.transporter.sendMail({
+      from: this.from,
+      to,
+      subject,
+      text,
+      html,
+      inReplyTo,
+      references: inReplyTo,
+    });
+    logger.log({ to, messageId: info.messageId }, "Relance de qualification envoyée");
+    return { messageId: info.messageId, subject };
+  }
+
   async sendQualificationEmail(
     to: string,
     params: QualificationEmailParams,

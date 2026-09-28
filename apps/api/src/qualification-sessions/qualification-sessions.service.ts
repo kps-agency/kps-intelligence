@@ -256,6 +256,42 @@ export class QualificationSessionsService {
     return this.toResponse(data);
   }
 
+  // Statut réel (expiration constatée et journalisée au passage).
+  async effectiveStatus(id: string): Promise<QualificationSessionStatus> {
+    return (await this.requireSession(id)).status as QualificationSessionStatus;
+  }
+
+  // Relance (section 39) : le token n'est stocké que haché, un rappel ne
+  // peut donc contenir qu'un lien neuf. Contrairement à `regenerate`, le
+  // statut et la date d'envoi sont conservés (le lien reste « envoyé ») et
+  // aucun QUALIFICATION_LINK_SENT n'est émis — la relance a son propre
+  // événement, sinon elle relancerait elle-même la chaîne de relances.
+  //
+  // Si l'envoi échoue, l'ancien token est restauré : le lien que le
+  // prospect a déjà reçu doit continuer de fonctionner.
+  async withFreshLink<T>(id: string, send: (qualificationUrl: string) => Promise<T>): Promise<T> {
+    const session = await this.requireSession(id);
+    this.assertWritable(session);
+
+    const client = this.supabase.getClient();
+    const { rawToken, tokenHash } = this.generateToken();
+    const { error } = await client
+      .from("qualification_sessions")
+      .update({ token_hash: tokenHash })
+      .eq("id", id);
+    if (error) throw toDbException(error);
+
+    try {
+      return await send(this.buildQualificationUrl(rawToken));
+    } catch (err) {
+      await client
+        .from("qualification_sessions")
+        .update({ token_hash: session.token_hash })
+        .eq("id", id);
+      throw err;
+    }
+  }
+
   async regenerate(id: string, actor: EventActor): Promise<QualificationSessionCreatedResponse> {
     const session = await this.requireSession(id);
     if (session.status === "COMPLETED") {

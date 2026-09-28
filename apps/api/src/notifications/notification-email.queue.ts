@@ -1,7 +1,8 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Queue, Worker, type ConnectionOptions, type Job } from "bullmq";
+import { Queue, Worker, type Job } from "bullmq";
 import { toDbException } from "../common/db-error";
+import { redisConnection } from "../common/redis-connection";
 import { EmailService } from "../email/email.service";
 import { SupabaseService } from "../supabase/supabase.service";
 
@@ -16,20 +17,6 @@ interface EmailJobData {
 // Au-delà, une notification non envoyée n'a plus d'intérêt à être relancée
 // au démarrage (elle reste visible en in-app et tracée avec son erreur).
 const REQUEUE_WINDOW_HOURS = 24;
-
-function redisConnection(url: string): ConnectionOptions {
-  const parsed = new URL(url);
-  return {
-    host: parsed.hostname,
-    port: Number(parsed.port || 6379),
-    username: parsed.username || undefined,
-    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
-    db: parsed.pathname.length > 1 ? Number(parsed.pathname.slice(1)) : undefined,
-    tls: parsed.protocol === "rediss:" ? {} : undefined,
-    // Exigé par BullMQ pour les connexions bloquantes des workers.
-    maxRetriesPerRequest: null,
-  };
-}
 
 // Envoi asynchrone des emails de notification (section 62 : retry,
 // backoff, idempotence, logs, gestion d'échec). La ligne `notifications`

@@ -4,7 +4,10 @@ import { EmailModule } from "../email/email.module";
 import { QualificationSessionsModule } from "../qualification-sessions/qualification-sessions.module";
 import { ServicesModule } from "../services/services.module";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
-import { QualificationDispatchHandlers } from "./qualification-dispatch.handlers";
+import { WorkflowActionsService } from "./workflow-actions.service";
+import { WorkflowEngine } from "./workflow-engine.service";
+import { WorkflowsController } from "./workflows.controller";
+import { WorkflowsService } from "./workflows.service";
 
 @Module({
   imports: [
@@ -14,6 +17,7 @@ import { QualificationDispatchHandlers } from "./qualification-dispatch.handlers
     EmailModule,
     WhatsappModule,
   ],
-  providers: [QualificationDispatchHandlers],
+  controllers: [WorkflowsController],
+  providers: [WorkflowsService, WorkflowEngine, WorkflowActionsService],
 })
-export class QualificationDispatchModule {}
+export class WorkflowsModule {}
