@@ -53,7 +53,7 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | qualification (public) | **Sans authentification** (`@Public()`) — `GET /api/v1/public/qualification/:token`, `PUT .../responses/:fieldKey`, `POST .../submit` ; résolution par token uniquement (jamais par id), au-dessus du même `QualificationSessionsService` | 10 |
 | email | `GET /api/v1/email-ingestion/status` (admin, observabilité) — pas de webhook : réception par polling IMAP réel en tâche de fond, voir `docs/AI_CONTEXT.md` | 11 |
 | whatsapp | **Appelé par Meta** (`@Public`, sans rate limiting, exclu de Swagger) — `GET /api/v1/webhooks/whatsapp` (poignée de main, verify token), `POST /api/v1/webhooks/whatsapp` (signature `X-Hub-Signature-256` obligatoire, 200 immédiat, traitement en arrière-plan) | 12 |
-| events | `/api/v1/events` (lecture timeline) | 13 |
+| events | `GET /api/v1/requests/:id/timeline` (`requests.read`) — timeline de la demande reconstruite depuis la table `events`, ordre chronologique, acteur SYSTEM/AI/USER/AUTOMATION | 13 |
 | clients | `/api/v1/clients` | 6 |
 | contacts | `/api/v1/clients/:clientId/contacts`, `/api/v1/contacts` | 6 |
 | requests | `/api/v1/requests` (source MANUAL uniquement — EMAIL/WHATSAPP arrivent par webhook aux Phases 11-12) | 7 |

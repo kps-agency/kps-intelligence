@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { QUALIFICATION_LINK_DEFAULT_EXPIRY_DAYS } from "@kps/shared";
-import { FormFieldType, QualificationSessionStatus } from "@kps/types";
+import { EventEntityType, EventType, FormFieldType, QualificationSessionStatus } from "@kps/types";
 import type {
   Database,
   FormFieldOption,
@@ -15,6 +15,7 @@ import type {
 } from "@kps/types";
 import { FormsService } from "../forms/forms.service";
 import { toDbException } from "../common/db-error";
+import { EventBus, SYSTEM_ACTOR, type EventActor } from "../events/event-bus.service";
 import { SupabaseService } from "../supabase/supabase.service";
 
 type SessionRow = Database["public"]["Tables"]["qualification_sessions"]["Row"];
@@ -60,12 +61,18 @@ function isEmptyValue(value: unknown): boolean {
 
 const logger = new Logger("QualificationSessionsService");
 
+// Paliers de progression journalisés (section 38) : un événement par
+// palier franchi plutôt qu'un par champ sauvegardé, sinon l'autosave
+// noierait la timeline.
+const PROGRESS_STEP_PERCENT = 25;
+
 @Injectable()
 export class QualificationSessionsService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly formsService: FormsService,
     private readonly config: ConfigService,
+    private readonly eventBus: EventBus,
   ) {}
 
   // ---- Création / gestion admin (authentifié, section 37) ----
@@ -74,7 +81,11 @@ export class QualificationSessionsService {
   // (et ses réponses déjà enregistrées) pour ce couple demande/formulaire
   // si elle est encore active, mais lui attribue un token tout juste
   // généré — le seul moment où ce token est récupérable.
-  async create(requestId: string, formId: string): Promise<QualificationSessionCreatedResponse> {
+  async create(
+    requestId: string,
+    formId: string,
+    actor: EventActor,
+  ): Promise<QualificationSessionCreatedResponse> {
     await this.assertRequestExists(requestId);
     const form = await this.assertFormPublished(formId);
 
@@ -91,7 +102,7 @@ export class QualificationSessionsService {
     if (existingError) throw toDbException(existingError);
 
     if (existing) {
-      return this.rotateToken(existing, form.name);
+      return this.rotateToken(existing, form.name, actor);
     }
 
     const { rawToken, tokenHash } = this.generateToken();
@@ -108,6 +119,11 @@ export class QualificationSessionsService {
     if (error) throw toDbException(error);
 
     logger.log({ requestId, formId, sessionId: data.id }, "Lien de qualification créé");
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_CREATED, actor, {
+      formId,
+      formName: form.name,
+      regenerated: false,
+    });
     return this.toCreatedResponse(data, rawToken);
   }
 
@@ -135,19 +151,26 @@ export class QualificationSessionsService {
     sessionId: string,
     fieldKey: string,
     value: unknown,
+    actor: EventActor,
   ): Promise<QualificationSessionDetailResponse> {
     const session = await this.requireSession(sessionId);
-    const updated = await this.saveResponseForSession(session, fieldKey, value);
+    const updated = await this.saveResponseForSession(session, fieldKey, value, actor);
     return this.buildDetail(updated);
   }
 
-  async submit(id: string): Promise<QualificationSessionResponse> {
+  async submit(id: string, actor: EventActor): Promise<QualificationSessionResponse> {
     const session = await this.requireSession(id);
-    const updated = await this.submitSession(session);
+    const updated = await this.submitSession(session, actor);
     return this.toResponse(updated);
   }
 
-  async markSent(id: string): Promise<QualificationSessionResponse> {
+  // `channel` : MANUAL quand un utilisateur indique avoir transmis le lien
+  // lui-même, EMAIL/WHATSAPP quand la plateforme l'a réellement envoyé.
+  async markSent(
+    id: string,
+    actor: EventActor,
+    channel: "MANUAL" | "EMAIL" | "WHATSAPP" = "MANUAL",
+  ): Promise<QualificationSessionResponse> {
     const session = await this.requireSession(id);
     if (session.status !== "CREATED") {
       throw new BadRequestException(
@@ -163,10 +186,11 @@ export class QualificationSessionsService {
       .select("*")
       .single();
     if (error) throw toDbException(error);
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_SENT, actor, { channel });
     return this.toResponse(data);
   }
 
-  async revoke(id: string): Promise<QualificationSessionResponse> {
+  async revoke(id: string, actor: EventActor): Promise<QualificationSessionResponse> {
     const session = await this.requireSession(id);
     if (session.status === "COMPLETED") {
       throw new BadRequestException("Une qualification déjà terminée ne peut pas être révoquée.");
@@ -183,10 +207,15 @@ export class QualificationSessionsService {
       .select("*")
       .single();
     if (error) throw toDbException(error);
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_REVOKED, actor);
     return this.toResponse(data);
   }
 
-  async extend(id: string, days: number | undefined): Promise<QualificationSessionResponse> {
+  async extend(
+    id: string,
+    days: number | undefined,
+    actor: EventActor,
+  ): Promise<QualificationSessionResponse> {
     const session = await this.requireSession(id);
     if (session.status === "COMPLETED") {
       throw new BadRequestException("Une qualification déjà terminée ne peut pas être prolongée.");
@@ -221,17 +250,20 @@ export class QualificationSessionsService {
       .select("*")
       .single();
     if (error) throw toDbException(error);
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_EXTENDED, actor, {
+      expiresAt: nextExpiresAt,
+    });
     return this.toResponse(data);
   }
 
-  async regenerate(id: string): Promise<QualificationSessionCreatedResponse> {
+  async regenerate(id: string, actor: EventActor): Promise<QualificationSessionCreatedResponse> {
     const session = await this.requireSession(id);
     if (session.status === "COMPLETED") {
       throw new BadRequestException("Une qualification déjà terminée ne peut pas être régénérée.");
     }
 
     const form = await this.formsService.findById(session.form_id);
-    return this.rotateToken(session, form.name);
+    return this.rotateToken(session, form.name, actor);
   }
 
   // ---- Page publique (section 24, aucune authentification) ----
@@ -248,13 +280,13 @@ export class QualificationSessionsService {
     value: unknown,
   ): Promise<PublicQualificationSessionResponse> {
     const session = await this.resolveByToken(rawToken);
-    const updated = await this.saveResponseForSession(session, fieldKey, value);
+    const updated = await this.saveResponseForSession(session, fieldKey, value, SYSTEM_ACTOR);
     return this.buildPublicResponse(updated);
   }
 
   async submitPublic(rawToken: string): Promise<PublicQualificationSessionResponse> {
     const session = await this.resolveByToken(rawToken);
-    const updated = await this.submitSession(session);
+    const updated = await this.submitSession(session, SYSTEM_ACTOR);
     return this.buildPublicResponse(updated);
   }
 
@@ -264,6 +296,7 @@ export class QualificationSessionsService {
     session: SessionRow,
     fieldKey: string,
     value: unknown,
+    actor: EventActor,
   ): Promise<SessionRow> {
     this.assertWritable(session);
 
@@ -271,6 +304,8 @@ export class QualificationSessionsService {
     if (!field) {
       throw new NotFoundException(`Champ inconnu pour ce formulaire ("${fieldKey}").`);
     }
+
+    const progressBefore = await this.computeProgressPercent(session);
 
     const client = this.supabase.getClient();
 
@@ -308,10 +343,23 @@ export class QualificationSessionsService {
       .select("*")
       .single();
     if (error) throw toDbException(error);
+
+    if (!session.started_at) {
+      await this.emitForSession(data, EventType.FORM_STARTED, actor);
+    }
+    const progressAfter = await this.computeProgressPercent(data);
+    if (
+      Math.floor(progressAfter / PROGRESS_STEP_PERCENT) >
+      Math.floor(progressBefore / PROGRESS_STEP_PERCENT)
+    ) {
+      await this.emitForSession(data, EventType.FORM_PROGRESS_UPDATED, actor, {
+        progressPercent: progressAfter,
+      });
+    }
     return data;
   }
 
-  private async submitSession(session: SessionRow): Promise<SessionRow> {
+  private async submitSession(session: SessionRow, actor: EventActor): Promise<SessionRow> {
     this.assertWritable(session);
 
     const form = await this.formsService.findById(session.form_id);
@@ -358,6 +406,7 @@ export class QualificationSessionsService {
     }
 
     logger.log({ sessionId: session.id, requestId: session.request_id }, "Qualification complétée");
+    await this.emitForSession(data, EventType.FORM_COMPLETED, actor);
     return data;
   }
 
@@ -445,6 +494,11 @@ export class QualificationSessionsService {
       .select("*")
       .single();
     if (error) throw toDbException(error);
+    // Journalisé au moment où l'expiration est constatée (pas de tâche
+    // planifiée) ; la date réelle d'expiration est dans le payload.
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_EXPIRED, SYSTEM_ACTOR, {
+      expiresAt: data.expires_at,
+    });
     return data;
   }
 
@@ -464,6 +518,7 @@ export class QualificationSessionsService {
       .select("*")
       .single();
     if (error) throw toDbException(error);
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_OPENED, SYSTEM_ACTOR);
     return data;
   }
 
@@ -483,6 +538,7 @@ export class QualificationSessionsService {
   private async rotateToken(
     session: SessionRow,
     formName: string,
+    actor: EventActor,
   ): Promise<QualificationSessionCreatedResponse> {
     const { rawToken, tokenHash } = this.generateToken();
     const nextStatus: QualificationSessionStatus = session.started_at
@@ -505,7 +561,28 @@ export class QualificationSessionsService {
     if (error) throw toDbException(error);
 
     logger.log({ sessionId: session.id, form: formName }, "Lien de qualification (re)généré");
+    await this.emitForSession(data, EventType.QUALIFICATION_LINK_CREATED, actor, {
+      formId: data.form_id,
+      formName,
+      regenerated: true,
+    });
     return this.toCreatedResponse(data, rawToken);
+  }
+
+  private async emitForSession(
+    session: SessionRow,
+    type: EventType,
+    actor: EventActor,
+    payload: Record<string, string | number | boolean | null> = {},
+  ): Promise<void> {
+    await this.eventBus.emit({
+      type,
+      entityType: EventEntityType.QUALIFICATION_SESSION,
+      entityId: session.id,
+      requestId: session.request_id,
+      actor,
+      payload: { sessionId: session.id, ...payload },
+    });
   }
 
   private async assertFormPublished(

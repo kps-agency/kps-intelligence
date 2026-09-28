@@ -261,6 +261,7 @@ export type Database = {
           external_message_id: string | null
           external_thread_id: string | null
           from_address: string | null
+          from_name: string | null
           id: string
           sent_at: string | null
           subject: string | null
@@ -275,6 +276,7 @@ export type Database = {
           external_message_id?: string | null
           external_thread_id?: string | null
           from_address?: string | null
+          from_name?: string | null
           id?: string
           sent_at?: string | null
           subject?: string | null
@@ -289,6 +291,7 @@ export type Database = {
           external_message_id?: string | null
           external_thread_id?: string | null
           from_address?: string | null
+          from_name?: string | null
           id?: string
           sent_at?: string | null
           subject?: string | null
@@ -453,6 +456,7 @@ export type Database = {
           entity_type: string
           id: string
           payload: Json
+          request_id: string | null
           type: Database["public"]["Enums"]["event_type"]
         }
         Insert: {
@@ -463,6 +467,7 @@ export type Database = {
           entity_type: string
           id?: string
           payload?: Json
+          request_id?: string | null
           type: Database["public"]["Enums"]["event_type"]
         }
         Update: {
@@ -473,9 +478,18 @@ export type Database = {
           entity_type?: string
           id?: string
           payload?: Json
+          request_id?: string | null
           type?: Database["public"]["Enums"]["event_type"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       form_fields: {
         Row: {
@@ -1833,6 +1847,11 @@ export type Database = {
         | "MISSION_BLOCKED"
         | "REQUEST_CLOSED"
         | "AI_ANALYSIS_FAILED"
+        | "REQUEST_STATUS_CHANGED"
+        | "QUALIFICATION_LINK_REVOKED"
+        | "QUALIFICATION_LINK_EXTENDED"
+        | "QUALIFICATION_LINK_EXPIRED"
+        | "CONVERSATION_MESSAGE_RECEIVED"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2077,6 +2096,11 @@ export const Constants = {
         "MISSION_BLOCKED",
         "REQUEST_CLOSED",
         "AI_ANALYSIS_FAILED",
+        "REQUEST_STATUS_CHANGED",
+        "QUALIFICATION_LINK_REVOKED",
+        "QUALIFICATION_LINK_EXTENDED",
+        "QUALIFICATION_LINK_EXPIRED",
+        "CONVERSATION_MESSAGE_RECEIVED",
       ],
       form_field_type: [
         "TEXT",

@@ -26,6 +26,7 @@ import { RequestSource } from "@kps/types";
 import type { Database } from "@kps/types";
 import { AppModule } from "../src/app.module";
 import { EmailService } from "../src/email/email.service";
+import { AUTOMATION_ACTOR } from "../src/events/event-bus.service";
 import { RequestsService } from "../src/requests/requests.service";
 import { SupabaseService } from "../src/supabase/supabase.service";
 
@@ -57,7 +58,7 @@ describe("Email (intégration réelle — SMTP réel, IMAP réel, IA réelle)", 
   });
 
   describe("createFromInbound (cœur du pipeline d'ingestion)", () => {
-    it("crée une vraie demande source=EMAIL, analysée par Claude", async () => {
+    it("crée une vraie demande source=EMAIL, puis l'analyse par Claude", async () => {
       const messageId = `<${run}-1@example.test>`;
       const { request, alreadyExisted } = await requestsService.createFromInbound({
         source: RequestSource.EMAIL,
@@ -76,8 +77,13 @@ describe("Email (intégration réelle — SMTP réel, IMAP réel, IA réelle)", 
 
       expect(alreadyExisted).toBe(false);
       expect(request.source).toBe("EMAIL");
-      expect(request.status).toBe("ANALYZED");
-      expect(typeof request.aiConfidence).toBe("number");
+
+      // L'ingestion enregistre la conversation puis lance l'analyse
+      // (createFromInbound ne l'enchaîne plus lui-même, Phase 13).
+      await requestsService.analyze(request.id, AUTOMATION_ACTOR);
+      const analyzed = await requestsService.findById(request.id);
+      expect(analyzed.status).toBe("ANALYZED");
+      expect(typeof analyzed.aiConfidence).toBe("number");
 
       const { data: row } = await db
         .from("requests")

@@ -2,15 +2,13 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@ne
 import { ConfigService } from "@nestjs/config";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
-import { AI_LOW_CONFIDENCE_THRESHOLD } from "@kps/shared";
 import { RequestSource } from "@kps/types";
-import type { Database, RequestResponse } from "@kps/types";
+import type { Database } from "@kps/types";
 import { toDbException } from "../common/db-error";
-import { QualificationSessionsService } from "../qualification-sessions/qualification-sessions.service";
+import { ConversationsService, type InboundMessage } from "../conversations/conversations.service";
+import { AUTOMATION_ACTOR } from "../events/event-bus.service";
 import { RequestsService } from "../requests/requests.service";
-import { ServicesService } from "../services/services.service";
 import { SupabaseService } from "../supabase/supabase.service";
-import { EmailService } from "./email.service";
 
 type IngestionStateRow = Database["public"]["Tables"]["email_ingestion_state"]["Row"];
 
@@ -19,9 +17,12 @@ const logger = new Logger("EmailIngestionService");
 // Réception par polling IMAP réel (pas un webhook) : Gmail n'offre pas
 // d'inbound webhook simple pour un compte personnel (il faudrait Google
 // Cloud Pub/Sub + un point HTTPS public, hors de portée d'un dev local
-// sans tunnel). Le pipeline en aval (idempotence, création de demande,
-// analyse IA, envoi de qualification) est strictement le même que celui
+// sans tunnel). Le pipeline en aval est strictement le même que celui
 // qu'un vrai webhook déclencherait — voir docs/AI_CONTEXT.md.
+//
+// Ce service ne fait que recevoir et enregistrer : la suite (envoi du
+// lien de qualification...) réagit aux événements émis par l'analyse,
+// dans le module qualification-dispatch.
 @Injectable()
 export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
@@ -31,9 +32,7 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly supabase: SupabaseService,
     private readonly requestsService: RequestsService,
-    private readonly servicesService: ServicesService,
-    private readonly qualificationSessionsService: QualificationSessionsService,
-    private readonly emailService: EmailService,
+    private readonly conversationsService: ConversationsService,
   ) {}
 
   onModuleInit(): void {
@@ -133,11 +132,39 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const fromName = fromEntry?.value[0]?.name?.trim() || null;
+    if (await this.conversationsService.isKnownMessage(messageId)) {
+      logger.log({ messageId }, "Email déjà traité (idempotence), ignoré");
+      return;
+    }
+
+    const references = Array.isArray(parsed.references)
+      ? parsed.references
+      : parsed.references
+        ? [parsed.references]
+        : [];
+    const threadIds = [...new Set([parsed.inReplyTo, ...references].filter(isNonEmpty))];
     const subject = parsed.subject?.trim() || "(sans objet)";
-    const originalMessage = (parsed.text ?? (parsed.html || "")).toString().trim() || null;
-    const references = Array.isArray(parsed.references) ? parsed.references[0] : parsed.references;
-    const threadId = references ?? parsed.inReplyTo ?? null;
+    const body = (parsed.text ?? (parsed.html || "")).toString().trim();
+
+    const inbound: InboundMessage = {
+      fromAddress,
+      fromName: fromEntry?.value[0]?.name?.trim() || null,
+      toAddress: selfAddress,
+      subject,
+      body: body || "(message vide)",
+      externalMessageId: messageId,
+      externalThreadId: threadIds[0] ?? null,
+      sentAt: (parsed.date ?? new Date()).toISOString(),
+    };
+
+    // Réponse dans un fil déjà connu (typiquement : le prospect répond à
+    // l'email de qualification) : elle rejoint la demande existante.
+    const open = await this.conversationsService.findOpenByExternalIds("EMAIL", threadIds);
+    if (open) {
+      await this.conversationsService.appendInbound(open, "EMAIL", inbound);
+      logger.log({ requestId: open.requestId }, "Email rattaché à une conversation existante");
+      return;
+    }
 
     let clientId: string | null = null;
     let contactId: string | null = null;
@@ -146,6 +173,7 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
       .from("contacts")
       .select("id, client_id")
       .ilike("email", fromAddress)
+      .limit(1)
       .maybeSingle();
     if (contactError) throw toDbException(contactError);
     if (contact) {
@@ -157,71 +185,25 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
       source: RequestSource.EMAIL,
       channel: "gmail",
       subject,
-      originalMessage,
+      originalMessage: body || null,
       language: null,
       country: null,
       clientId,
       contactId,
       emailMessageId: messageId,
-      emailThreadId: threadId,
+      emailThreadId: inbound.externalThreadId,
     });
-
     if (alreadyExisted) {
       logger.log({ messageId }, "Email déjà traité (idempotence), ignoré");
       return;
     }
 
+    await this.conversationsService.startForRequest("EMAIL", request, inbound);
+    await this.requestsService.analyze(request.id, AUTOMATION_ACTOR);
     logger.log(
       { requestId: request.id, reference: request.reference, from: fromAddress },
       "Demande créée depuis un email entrant",
     );
-
-    if (
-      request.detectedServiceSlug &&
-      request.aiConfidence !== null &&
-      request.aiConfidence >= AI_LOW_CONFIDENCE_THRESHOLD
-    ) {
-      await this.trySendQualificationLink(request, fromAddress, fromName);
-    }
-  }
-
-  // Ne bloque jamais l'ingestion (section 68) : la demande existe déjà et
-  // reste qualifiable manuellement depuis /requests/:id en cas d'échec ici.
-  private async trySendQualificationLink(
-    request: RequestResponse,
-    toAddress: string,
-    fromName: string | null,
-  ): Promise<void> {
-    try {
-      const services = await this.servicesService.list();
-      const service = services.find((s) => s.slug === request.detectedServiceSlug);
-      if (!service?.qualificationFormId) {
-        logger.log(
-          { requestId: request.id, service: request.detectedServiceSlug },
-          "Aucun formulaire publié pour ce service, envoi automatique ignoré",
-        );
-        return;
-      }
-
-      const session = await this.qualificationSessionsService.create(
-        request.id,
-        service.qualificationFormId,
-      );
-      const firstName = fromName?.split(" ")[0] ?? null;
-      await this.emailService.sendQualificationEmail(toAddress, {
-        contactFirstName: firstName,
-        serviceName: service.name,
-        qualificationUrl: session.qualificationUrl,
-      });
-      if (session.status === "CREATED") {
-        await this.qualificationSessionsService.markSent(session.id);
-      }
-    } catch (err) {
-      logger.error(
-        { requestId: request.id, err: err instanceof Error ? err.message : String(err) },
-        "Échec de l'envoi automatique de l'email de qualification",
-      );
-    }
   }
 
   private async getState(): Promise<IngestionStateRow> {
@@ -264,4 +246,8 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
       .eq("id", true);
     if (error) throw toDbException(error);
   }
+}
+
+function isNonEmpty(value: string | undefined | null): value is string {
+  return typeof value === "string" && value.length > 0;
 }

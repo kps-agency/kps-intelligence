@@ -1,6 +1,9 @@
 import type {
   AiAnalysisStatus,
   ClientStatus,
+  EventActorType,
+  EventEntityType,
+  EventType,
   FormFieldType,
   FormStatus,
   PriorityLevel,
@@ -463,6 +466,19 @@ export interface PublicQualificationSessionResponse {
   requestReference: string;
   form: FormResponse;
   responses: Record<string, unknown>;
+}
+
+// Élément de GET /requests/:id/timeline (section 43), dans l'ordre
+// chronologique. `actorName` n'est renseigné que pour un acteur USER.
+export interface TimelineEventResponse {
+  id: string;
+  type: EventType;
+  entityType: EventEntityType;
+  entityId: string;
+  actorType: EventActorType;
+  actorName: string | null;
+  payload: Record<string, unknown>;
+  createdAt: string;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

@@ -206,4 +206,17 @@ export enum EventType {
   // (prompt.md section 68 — une panne Claude doit produire un événement
   // visible plutôt qu'être avalée silencieusement).
   AI_ANALYSIS_FAILED = "AI_ANALYSIS_FAILED",
+  // Ajouts Phase 13 : étapes déjà réelles du produit, nécessaires pour que
+  // la timeline (section 43) reconstitue fidèlement l'historique.
+  REQUEST_STATUS_CHANGED = "REQUEST_STATUS_CHANGED",
+  QUALIFICATION_LINK_REVOKED = "QUALIFICATION_LINK_REVOKED",
+  QUALIFICATION_LINK_EXTENDED = "QUALIFICATION_LINK_EXTENDED",
+  QUALIFICATION_LINK_EXPIRED = "QUALIFICATION_LINK_EXPIRED",
+  CONVERSATION_MESSAGE_RECEIVED = "CONVERSATION_MESSAGE_RECEIVED",
+}
+
+export enum EventEntityType {
+  REQUEST = "request",
+  QUALIFICATION_SESSION = "qualification_session",
+  CONVERSATION = "conversation",
 }

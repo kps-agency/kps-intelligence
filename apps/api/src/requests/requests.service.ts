@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AI_LOW_CONFIDENCE_THRESHOLD } from "@kps/shared";
+import { EventEntityType, EventType } from "@kps/types";
 import type {
   AiAnalysisResponse,
   AiAnalysisStatus,
@@ -15,6 +16,13 @@ import type {
 import { AI_SERVICE, type AIService } from "../ai/ai.service.interface";
 import { toDbException } from "../common/db-error";
 import { toRange } from "../common/pagination-query.dto";
+import {
+  AI_ACTOR,
+  AUTOMATION_ACTOR,
+  EventBus,
+  SYSTEM_ACTOR,
+  type EventActor,
+} from "../events/event-bus.service";
 import { toContainsPattern } from "../common/search";
 import { SupabaseService } from "../supabase/supabase.service";
 import type { CreateRequestDto } from "./dto/create-request.dto";
@@ -34,6 +42,14 @@ const REQUEST_SELECT =
   "*, clients(company_name), contacts(first_name, last_name), services(slug, name)";
 
 const logger = new Logger("RequestsService");
+
+// Statuts qui ont leur propre événement dans le catalogue (section 4) ;
+// tout autre changement de statut produit REQUEST_STATUS_CHANGED.
+const STATUS_EVENTS: Partial<Record<string, EventType>> = {
+  QUALIFIED: EventType.REQUEST_QUALIFIED,
+  UNQUALIFIED: EventType.REQUEST_UNQUALIFIED,
+  CLOSED: EventType.REQUEST_CLOSED,
+};
 
 function toResponse(row: RequestWithLinks): RequestResponse {
   return {
@@ -83,6 +99,7 @@ export class RequestsService {
   constructor(
     private readonly supabase: SupabaseService,
     @Inject(AI_SERVICE) private readonly aiService: AIService,
+    private readonly eventBus: EventBus,
   ) {}
 
   async list(
@@ -130,7 +147,7 @@ export class RequestsService {
     return toResponse(data as RequestWithLinks);
   }
 
-  async create(dto: CreateRequestDto): Promise<RequestResponse> {
+  async create(dto: CreateRequestDto, actor: EventActor): Promise<RequestResponse> {
     await this.assertClientContactMatch(dto.clientId, dto.contactId);
 
     const { data, error } = await this.supabase
@@ -151,18 +168,22 @@ export class RequestsService {
       .single();
 
     if (error) throw toDbException(error);
+    await this.emitReceived(data.id, actor, { source: "MANUAL" });
 
     // Analyse IA synchrone (Phase 8, section 19) : pas de file d'attente
     // asynchrone en place pour l'instant, et une demande MANUAL doit être
     // analysée dès sa création. Un échec ne doit jamais bloquer la
     // création (section 68) — runAnalysis avale déjà ses propres erreurs.
-    await this.runAnalysis({
-      id: data.id,
-      subject: dto.subject,
-      original_message: dto.originalMessage ?? null,
-      language: dto.language ?? null,
-      country: dto.country ?? null,
-    });
+    await this.runAnalysis(
+      {
+        id: data.id,
+        subject: dto.subject,
+        original_message: dto.originalMessage ?? null,
+        language: dto.language ?? null,
+        country: dto.country ?? null,
+      },
+      AUTOMATION_ACTOR,
+    );
 
     return this.findById(data.id);
   }
@@ -172,6 +193,10 @@ export class RequestsService {
   // message externe : un même message reçu deux fois (webhook rejoué, IMAP
   // re-scanné après un redémarrage) ne doit jamais créer deux demandes
   // (section 17).
+  //
+  // N'analyse pas : l'appelant enregistre d'abord la conversation (le
+  // canal de réponse au prospect) puis appelle `analyze`, pour que les
+  // handlers déclenchés par l'analyse sachent déjà où répondre.
   async createFromInbound(params: {
     source: RequestSource;
     channel: string | null;
@@ -223,19 +248,15 @@ export class RequestsService {
       .select("id")
       .single();
     if (error) throw toDbException(error);
-
-    await this.runAnalysis({
-      id: data.id,
-      subject: params.subject,
-      original_message: params.originalMessage,
-      language: params.language,
-      country: params.country,
+    await this.emitReceived(data.id, SYSTEM_ACTOR, {
+      source: params.source,
+      channel: params.channel,
     });
 
     return { request: await this.findById(data.id), alreadyExisted: false };
   }
 
-  async update(id: string, dto: UpdateRequestDto): Promise<RequestResponse> {
+  async update(id: string, dto: UpdateRequestDto, actor: EventActor): Promise<RequestResponse> {
     if (dto.subject === null) {
       throw new BadRequestException("Le sujet ne peut pas être vide.");
     }
@@ -269,6 +290,19 @@ export class RequestsService {
       throw new BadRequestException("Aucun champ à modifier.");
     }
 
+    let previousStatus: string | null = null;
+    if (fields.status !== undefined) {
+      const { data: current, error: currentError } = await this.supabase
+        .getClient()
+        .from("requests")
+        .select("status")
+        .eq("id", id)
+        .maybeSingle();
+      if (currentError) throw toDbException(currentError);
+      if (!current) throw new NotFoundException("Demande introuvable.");
+      previousStatus = current.status;
+    }
+
     const { data, error } = await this.supabase
       .getClient()
       .from("requests")
@@ -279,6 +313,17 @@ export class RequestsService {
 
     if (error) throw toDbException(error);
     if (!data) throw new NotFoundException("Demande introuvable.");
+
+    if (fields.status !== undefined && previousStatus !== fields.status) {
+      await this.eventBus.emit({
+        type: STATUS_EVENTS[fields.status] ?? EventType.REQUEST_STATUS_CHANGED,
+        entityType: EventEntityType.REQUEST,
+        entityId: id,
+        requestId: id,
+        actor,
+        payload: { from: previousStatus, to: fields.status },
+      });
+    }
     return this.findById(id);
   }
 
@@ -328,7 +373,7 @@ export class RequestsService {
   }
 
   // Déclenche (ou redéclenche) une analyse IA pour une demande existante.
-  async analyze(id: string): Promise<AiAnalysisResponse> {
+  async analyze(id: string, initiator: EventActor): Promise<AiAnalysisResponse> {
     const { data: row, error } = await this.supabase
       .getClient()
       .from("requests")
@@ -339,7 +384,7 @@ export class RequestsService {
     if (error) throw toDbException(error);
     if (!row) throw new NotFoundException("Demande introuvable.");
 
-    return this.runAnalysis(row);
+    return this.runAnalysis(row, initiator);
   }
 
   async listAnalyses(requestId: string): Promise<AiAnalysisResponse[]> {
@@ -366,16 +411,35 @@ export class RequestsService {
   // Panne Claude après épuisement des retries du SDK (section 68) : jamais
   // propagée à l'appelant — une analyse FAILED est persistée pour garder
   // une trace et permettre un traitement manuel, la demande reste utilisable.
-  private async runAnalysis(row: {
-    id: string;
-    subject: string;
-    original_message: string | null;
-    language: string | null;
-    country: string | null;
-  }): Promise<AiAnalysisResponse> {
+  //
+  // `initiator` : qui a demandé l'analyse (automatisme à la création, ou
+  // utilisateur qui la relance) ; les étapes suivantes sont attribuées à
+  // l'IA elle-même.
+  private async runAnalysis(
+    row: {
+      id: string;
+      subject: string;
+      original_message: string | null;
+      language: string | null;
+      country: string | null;
+    },
+    initiator: EventActor,
+  ): Promise<AiAnalysisResponse> {
     const model = this.aiService.getModel();
     const promptVersion = this.aiService.getPromptVersion();
     const client = this.supabase.getClient();
+    const requestEvent = {
+      entityType: EventEntityType.REQUEST,
+      entityId: row.id,
+      requestId: row.id,
+    };
+
+    await this.eventBus.emit({
+      ...requestEvent,
+      type: EventType.REQUEST_ANALYSIS_STARTED,
+      actor: initiator,
+      payload: { model },
+    });
 
     try {
       const result = await this.aiService.analyzeRequest({
@@ -385,16 +449,17 @@ export class RequestsService {
         country: row.country,
       });
 
-      let detectedServiceId: string | null = null;
+      let detectedService: { id: string; name: string } | null = null;
       if (result.service) {
         const { data: service, error: serviceError } = await client
           .from("services")
-          .select("id")
+          .select("id, name")
           .eq("slug", result.service)
           .maybeSingle();
         if (serviceError) throw toDbException(serviceError);
-        detectedServiceId = service?.id ?? null;
+        detectedService = service;
       }
+      const detectedServiceId = detectedService?.id ?? null;
 
       const requestUpdate: RequestUpdate = {
         detected_service_id: detectedServiceId,
@@ -434,6 +499,30 @@ export class RequestsService {
         );
       }
 
+      await this.eventBus.emit({
+        ...requestEvent,
+        type: EventType.REQUEST_ANALYSIS_COMPLETED,
+        actor: AI_ACTOR,
+        payload: {
+          analysisId: analysisRow.id,
+          intent: result.intent,
+          confidence: result.confidence,
+        },
+      });
+      if (detectedService && result.service) {
+        await this.eventBus.emit({
+          ...requestEvent,
+          type: EventType.SERVICE_DETECTED,
+          actor: AI_ACTOR,
+          payload: {
+            serviceSlug: result.service,
+            serviceName: detectedService.name,
+            subservice: result.subservice,
+            confidence: result.confidence,
+          },
+        });
+      }
+
       return toAnalysisResponse(analysisRow as AiAnalysisRow);
     } catch (err) {
       logger.error(
@@ -457,7 +546,29 @@ export class RequestsService {
         .single();
       if (insertError) throw toDbException(insertError);
 
+      await this.eventBus.emit({
+        ...requestEvent,
+        type: EventType.AI_ANALYSIS_FAILED,
+        actor: AI_ACTOR,
+        payload: { analysisId: failedRow.id },
+      });
+
       return toAnalysisResponse(failedRow as AiAnalysisRow);
     }
+  }
+
+  private async emitReceived(
+    requestId: string,
+    actor: EventActor,
+    payload: { source: string; channel?: string | null },
+  ): Promise<void> {
+    await this.eventBus.emit({
+      type: EventType.REQUEST_RECEIVED,
+      entityType: EventEntityType.REQUEST,
+      entityId: requestId,
+      requestId,
+      actor,
+      payload: { source: payload.source, channel: payload.channel ?? null },
+    });
   }
 }

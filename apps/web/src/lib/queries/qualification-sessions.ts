@@ -33,6 +33,7 @@ export function useCreateQualificationSession(requestId: string) {
       void queryClient.invalidateQueries({
         queryKey: ["qualification-sessions", "by-request", requestId],
       });
+      void queryClient.invalidateQueries({ queryKey: ["requests", "timeline", requestId] });
     },
   });
 }
@@ -57,6 +58,7 @@ function useSessionAdminAction<TResult>(
         queryKey: ["qualification-sessions", "by-request", requestId],
       });
       void queryClient.invalidateQueries({ queryKey: ["qualification-sessions", sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ["requests", "timeline", requestId] });
     },
   });
 }

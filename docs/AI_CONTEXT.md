@@ -903,9 +903,111 @@ de qualification créait la session sans jamais la marquer envoyée — l'UI
 admin affichait « créé, non envoyé » alors que l'email était bien parti.
 Les deux canaux appellent désormais `markSent` après un envoi réussi.
 
-Prochaine étape : **Phase 13 — Events & Event Bus**. Pas de checkpoint
-externe. Les tests réels WhatsApp (Phase 12) restent à faire dès que le
-compte Meta existe.
+## Phase 13 — Events & Event Bus
+
+**Principe** (sections 4, 43, 44) : chaque étape métier est d'abord
+écrite dans `events` (source de vérité), puis transmise aux handlers
+abonnés. La timeline d'une demande est reconstruite **uniquement** depuis
+`events` — rien d'autre n'est consulté.
+
+Backend :
+- `EventBus` (`apps/api/src/events/`, module global) : `emit()` persiste
+  puis dispatche ; `subscribe(type, handler)` ; les handlers tournent hors
+  du chemin de l'appelant (une étape déjà réalisée n'attend ni n'échoue à
+  cause d'une réaction en aval) et leurs erreurs sont journalisées sans
+  être propagées. Un échec d'écriture d'un événement est journalisé sans
+  annuler l'étape métier déjà réalisée. `whenIdle()` attend la fin des
+  handlers, y compris en cascade — utilisé à l'arrêt de l'app et par les
+  tests.
+- Acteur explicite sur chaque événement (section 43) : `USER` + id (passé
+  par les contrôleurs via `@CurrentUser`), `AI`, `SYSTEM` (ingestion,
+  suivi des actions du prospect sur la page publique, expiration),
+  `AUTOMATION` (analyse lancée à la création, envoi automatique). Passé en
+  paramètre des méthodes de service plutôt que par un contexte implicite.
+- Migration `900001` : 5 types ajoutés au catalogue (la section 4 ne donne
+  que des exemples) — `REQUEST_STATUS_CHANGED`,
+  `QUALIFICATION_LINK_REVOKED/EXTENDED/EXPIRED`,
+  `CONVERSATION_MESSAGE_RECEIVED` ; colonne `events.request_id` (demande
+  racine, quel que soit l'`entity_type`) pour que la timeline soit une
+  seule requête indexée ; trigger qui interdit toute modification d'un
+  événement (ajout seul — la suppression reste possible pour la cascade et
+  le futur droit à l'oubli) ; `conversation_messages.from_name`.
+- Rétrofit des phases 7-12 : réception, analyse démarrée/terminée/échouée,
+  service identifié, changement de statut (événement dédié pour
+  QUALIFIED/UNQUALIFIED/CLOSED, `REQUEST_STATUS_CHANGED` sinon — éditer un
+  autre champ n'est pas une étape du pipeline), cycle complet du lien de
+  qualification. `FORM_PROGRESS_UPDATED` n'est émis qu'au franchissement
+  d'un palier de 25 %, sinon l'autosave noierait la timeline. L'expiration
+  est journalisée quand elle est constatée (pas de tâche planifiée) ; la
+  date réelle est dans le payload. Aucun token de qualification dans les
+  payloads (vérifié par test).
+- **Découplage réel** : la règle « service identifié avec assurance →
+  envoi du formulaire » était codée en dur, en double, dans les ingestions
+  email et WhatsApp. Elle vit désormais dans
+  `qualification-dispatch/` sous forme de deux handlers :
+  `SERVICE_DETECTED` → (confiance ≥ seuil, formulaire publié, aucune
+  session existante) → émet `QUALIFICATION_REQUIRED` → crée le lien et
+  l'envoie **sur le canal par lequel le prospect a écrit**. Une demande
+  saisie à la main n'a pas de canal : la qualification apparaît comme
+  requise, l'équipe envoie le lien. Une analyse relancée ne renvoie pas un
+  second lien. Les ingestions ne font plus que recevoir et enregistrer.
+- Conséquence sur l'ordre : `createFromInbound` n'analyse plus lui-même —
+  l'ingestion enregistre la conversation (le canal de réponse) *puis*
+  appelle `analyze`, sinon le handler pourrait chercher où répondre avant
+  que la conversation existe.
+- `ConversationsService` partagé : les emails sont désormais aussi
+  conservés en conversation (comme WhatsApp). **Bug Phase 11 corrigé** :
+  un prospect qui répondait à l'email de qualification créait une
+  *nouvelle* demande (nouvelle analyse, potentiellement un second lien).
+  L'email de qualification part maintenant dans le fil du message
+  d'origine (`In-Reply-To`/`References`), son Message-ID est enregistré,
+  et une réponse qui référence un message connu d'une conversation ouverte
+  y est rattachée (`CONVERSATION_MESSAGE_RECEIVED`). Même principe que les
+  messages WhatsApp successifs d'un même numéro.
+- `GET /api/v1/requests/:id/timeline` (`requests.read`), noms des
+  utilisateurs résolus pour les acteurs `USER`.
+
+Frontend : carte « Historique » sur la fiche demande — libellé en
+français par type d'événement, horodatage, origine (icône + libellé
+IA/Utilisateur/Système/Automatisation, ou nom de l'utilisateur).
+Rafraîchie toutes les 15 s tant que la page est visible (les étapes
+automatiques et les actions du prospect arrivent sans action de
+l'utilisateur) et invalidée après chaque action faite depuis la fiche.
+
+**7 tests d'intégration réels** (`events.e2e-spec.ts`) : timeline d'une
+demande manuelle (ordre et acteur de chaque étape), qualification requise
+sans envoi faute de canal, relance d'analyse attribuée à l'utilisateur
+sans doublon de qualification, événements de statut avec ancien/nouveau
+statut, cycle de vie complet d'un lien dans l'ordre exact (10 événements,
+acteurs USER/SYSTEM, paliers 50 %/100 %, aucun token), journal
+non modifiable, accès 401/404/VIEWER. Et la chaîne événementielle de bout
+en bout, en boucle fermée : demande entrante par email → analyse Claude →
+`SERVICE_DETECTED` → `QUALIFICATION_REQUIRED` → lien créé → **vrai email
+envoyé et retrouvé par IMAP** dans le fil du message d'origine → réponse
+du prospect rattachée à la demande existante, une seule fois, sans
+nouvelle demande. Suite e2e complète : 153/153 (un échec isolé de
+`requests.e2e-spec` sur un timeout réseau Supabase, `ConnectTimeoutError`,
+repassé 27/27 seul).
+
+Vérifié en navigateur réel (Playwright sur build de production, 14
+contrôles, axe sans violation en ADMIN et VIEWER, mobile sans scroll
+horizontal). Deux vrais problèmes trouvés ainsi et corrigés :
+- Une analyse relancée sur une demande manuelle encore sans lien redisait
+  « Qualification requise » (le test e2e ne relançait qu'après création
+  d'un lien). `QUALIFICATION_REQUIRED` n'est plus émis qu'une fois par
+  demande et par service ; le test e2e couvre maintenant les deux cas.
+- Formulaires de connexion et de réinitialisation sans `method` : si le JS
+  ne se charge pas alors que le HTML du formulaire est servi, la
+  soumission native partait en GET avec **le mot de passe dans l'URL**
+  (historique, logs serveur). Passés en `method="post"`. Constaté parce
+  que `next build` lancé pendant un `next dev` écrase le `.next` partagé et
+  casse le serveur de dev (chunks en 404) : **ne jamais lancer
+  `pnpm build` pendant `pnpm dev`**, ou redémarrer `pnpm dev` ensuite.
+
+Prochaine étape : **Phase 14 — Notifications**. Checkpoint léger :
+vérifier avec l'utilisateur les templates/tons attendus (sinon templates
+par défaut). Les tests réels WhatsApp (Phase 12) restent à faire dès que
+le compte Meta existe.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

@@ -44,7 +44,9 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
+    // method="post" : si le JS ne se charge pas, la soumission native ne
+    // doit jamais placer le mot de passe dans l'URL (historique, logs).
+    <form method="post" onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
       <div className="grid gap-1.5">
         <Label htmlFor="email">Email</Label>
         <Input

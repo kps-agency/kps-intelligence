@@ -5,6 +5,7 @@ import type {
   RequestResponse,
   RequestSource,
   RequestStatus,
+  TimelineEventResponse,
   UpdateRequestRequest,
 } from "@kps/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,6 +79,17 @@ export function useRequestAnalyses(id: string) {
   });
 }
 
+// Rafraîchie périodiquement tant que la page est visible : une partie des
+// étapes (envoi automatique du lien, ouverture par le prospect) arrive
+// après coup, sans action de l'utilisateur sur cette page.
+export function useRequestTimeline(id: string) {
+  return useQuery({
+    queryKey: ["requests", "timeline", id] as const,
+    queryFn: () => apiFetch<TimelineEventResponse[]>(`/requests/${id}/timeline`),
+    refetchInterval: 15000,
+  });
+}
+
 export function useAnalyzeRequest(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -86,6 +98,7 @@ export function useAnalyzeRequest(id: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["requests", "analyses", id] });
       void queryClient.invalidateQueries({ queryKey: ["requests", "detail", id] });
+      void queryClient.invalidateQueries({ queryKey: ["requests", "timeline", id] });
     },
   });
 }

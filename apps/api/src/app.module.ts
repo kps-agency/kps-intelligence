@@ -10,8 +10,10 @@ import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { ContactsModule } from "./contacts/contacts.module";
 import { EmailModule } from "./email/email.module";
+import { EventsModule } from "./events/events.module";
 import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
+import { QualificationDispatchModule } from "./qualification-dispatch/qualification-dispatch.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
@@ -61,6 +63,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
       ],
     }),
     SupabaseModule,
+    EventsModule,
     HealthModule,
     UsersModule,
     RolesModule,
@@ -72,6 +75,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     QualificationSessionsModule,
     EmailModule,
     WhatsappModule,
+    QualificationDispatchModule,
     AuthModule,
   ],
   providers: [
