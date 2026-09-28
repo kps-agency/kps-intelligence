@@ -9,6 +9,7 @@ import { AuthModule } from "./auth/auth.module";
 import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { ContactsModule } from "./contacts/contacts.module";
+import { EmailModule } from "./email/email.module";
 import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
@@ -68,6 +69,7 @@ import { UsersModule } from "./users/users.module";
     ServicesModule,
     FormsModule,
     QualificationSessionsModule,
+    EmailModule,
     AuthModule,
   ],
   providers: [

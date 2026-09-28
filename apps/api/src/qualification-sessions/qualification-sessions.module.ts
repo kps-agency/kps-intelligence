@@ -8,5 +8,6 @@ import { QualificationSessionsService } from "./qualification-sessions.service";
   imports: [FormsModule],
   controllers: [QualificationSessionsController, PublicQualificationController],
   providers: [QualificationSessionsService],
+  exports: [QualificationSessionsService],
 })
 export class QualificationSessionsModule {}

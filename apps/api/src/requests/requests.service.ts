@@ -167,6 +167,65 @@ export class RequestsService {
     return this.findById(data.id);
   }
 
+  // Création depuis un canal entrant (email Phase 11, WhatsApp Phase 12...)
+  // — jamais depuis un DTO authentifié. Idempotent sur emailMessageId : un
+  // même message reçu deux fois (webhook rejoué, IMAP re-scanné après un
+  // redémarrage) ne doit jamais créer deux demandes (section 17).
+  async createFromInbound(params: {
+    source: RequestSource;
+    channel: string | null;
+    subject: string;
+    originalMessage: string | null;
+    language: string | null;
+    country: string | null;
+    clientId: string | null;
+    contactId: string | null;
+    emailMessageId?: string | null;
+    emailThreadId?: string | null;
+  }): Promise<{ request: RequestResponse; alreadyExisted: boolean }> {
+    const client = this.supabase.getClient();
+
+    if (params.emailMessageId) {
+      const { data: existing, error: existingError } = await client
+        .from("requests")
+        .select("id")
+        .eq("email_message_id", params.emailMessageId)
+        .maybeSingle();
+      if (existingError) throw toDbException(existingError);
+      if (existing) {
+        return { request: await this.findById(existing.id), alreadyExisted: true };
+      }
+    }
+
+    const { data, error } = await client
+      .from("requests")
+      .insert({
+        source: params.source,
+        channel: params.channel,
+        subject: params.subject,
+        original_message: params.originalMessage,
+        language: params.language,
+        country: params.country,
+        client_id: params.clientId,
+        contact_id: params.contactId,
+        email_message_id: params.emailMessageId ?? null,
+        email_thread_id: params.emailThreadId ?? null,
+      })
+      .select("id")
+      .single();
+    if (error) throw toDbException(error);
+
+    await this.runAnalysis({
+      id: data.id,
+      subject: params.subject,
+      original_message: params.originalMessage,
+      language: params.language,
+      country: params.country,
+    });
+
+    return { request: await this.findById(data.id), alreadyExisted: false };
+  }
+
   async update(id: string, dto: UpdateRequestDto): Promise<RequestResponse> {
     if (dto.subject === null) {
       throw new BadRequestException("Le sujet ne peut pas être vide.");

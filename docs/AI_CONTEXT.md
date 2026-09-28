@@ -750,14 +750,91 @@ confirmation sans fuite interne, retour admin avec suivi à jour,
 génération d'un second lien après complétion, révocation — 13 contrôles,
 axe sans violation sur les deux pages (admin et publique).
 
-Prochaine étape : **Phase 11 — Email (ingestion + envoi)**. Checkpoint
-externe #3 à franchir avant de commencer : choisir et configurer un
-provider email avec l'utilisateur.
+## Phase 11 — Email (ingestion + envoi)
+
+Checkpoint externe #3 franchi : compte Gmail personnel
+(`senghorpape41@gmail.com`) plutôt qu'un provider transactionnel dédié
+(Mailgun/SendGrid/Postmark envisagés puis écartés par l'utilisateur, qui a
+un compte Gmail déjà sous la main — « pour l'instant »). Deux itérations
+avant que le mot de passe d'application Gmail fonctionne : un premier
+mot de passe collé était rejeté (`535 BadCredentials`) alors que la
+validation en 2 étapes était bien active — régénérer un nouveau mot de
+passe d'application (plutôt que de réutiliser l'existant) a résolu le
+problème sans qu'on en comprenne la cause exacte côté Google.
+
+**Décision d'architecture notable** : Gmail n'offre pas d'inbound webhook
+simple pour un compte personnel (il faudrait Google Cloud Pub/Sub + un
+point HTTPS public, hors de portée d'un dev local sans tunnel). Réception
+par **polling IMAP réel** à la place — `EmailIngestionService`
+(`OnModuleInit`/`OnModuleDestroy`, `setInterval` piloté par
+`EMAIL_POLL_INTERVAL_SECONDS`) scanne réellement la boîte toutes les 60s
+et alimente exactement le même pipeline qu'un vrai webhook déclencherait.
+Migrer vers un provider avec un vrai webhook plus tard ne changera que le
+déclencheur, pas `RequestsService.createFromInbound` ni la suite de la
+chaîne.
+
+Backend :
+- `RequestsService.createFromInbound(...)` : nouvelle méthode interne
+  (pas de route HTTP, appelée uniquement par `EmailIngestionService`)
+  pour créer une demande depuis un canal entrant (EMAIL aujourd'hui,
+  WhatsApp en Phase 12). Idempotente sur `email_message_id` (index unique
+  partiel — `requests.email_message_id`/`email_thread_id`, migration
+  `700001`) : un même Message-ID renvoyé une deuxième fois renvoie la
+  demande déjà créée (`alreadyExisted: true`) sans jamais en recréer une.
+  Déclenche la même analyse IA synchrone que la création MANUAL (Phase 8).
+- `EmailIngestionService.processMessage` : parse chaque email réel
+  (`mailparser`) — expéditeur, sujet, corps texte/HTML, Message-ID,
+  thread (References/In-Reply-To). Cherche un contact existant par email
+  (`ilike`) pour lier automatiquement client/contact si trouvé. Ignore les
+  emails sans Message-ID (idempotence impossible) et les emails envoyés
+  par le compte lui-même (évite toute boucle avec les emails de
+  qualification qu'il envoie).
+- Chaînage automatique complet (section 17, 19, 21) : email reçu →
+  demande créée → analyse Claude → si un service est détecté avec une
+  confiance ≥ 0.6 (`AI_LOW_CONFIDENCE_THRESHOLD`, `packages/shared`) et
+  que ce service a un formulaire publié → une session de qualification
+  est créée (réutilise `QualificationSessionsService.create`, Phase 9-10)
+  → un vrai email de qualification part immédiatement (section 35,
+  template dans `apps/api/src/email/templates/qualification-email.ts`,
+  bouton + lien texte). Un échec à n'importe quelle étape de ce dernier
+  maillon (pas de formulaire lié, échec SMTP...) ne bloque jamais
+  l'ingestion (section 68) — la demande existe déjà et reste qualifiable
+  manuellement depuis `/requests/:id`.
+- `email_ingestion_state` (table à une ligne, `id boolean primary key
+  default true` + `check(id)`) : curseur du dernier UID IMAP traité, pour
+  reprendre exactement où on s'est arrêté après un redémarrage plutôt que
+  de rescanner toute la boîte. Amorçage automatique à `last_uid = 0` sur
+  un déploiement neuf (traite tout l'historique — le comportement attendu
+  pour une boîte dédiée qui n'a encore rien reçu) ; pour cet environnement
+  de dev, le curseur a été initialisé manuellement à `UIDNEXT - 1` pour
+  ignorer les 196 emails personnels déjà présents dans la boîte de test.
+- `GET /email-ingestion/status` (permission dédiée `email.read`,
+  SUPER_ADMIN/ADMIN uniquement — c'est une donnée opérationnelle, pas
+  métier) : dernier UID traité, horodatage du dernier passage, dernière
+  erreur éventuelle.
+
+**4 tests d'intégration réels** sur `email.e2e-spec.ts` : création
+source=EMAIL avec vraie analyse IA, idempotence stricte sur Message-ID
+(vérifiée en base — jamais deux lignes), liaison automatique à un contact
+existant, et un test à boucle fermée particulièrement rigoureux — un vrai
+envoi SMTP suivi d'une vraie recherche IMAP qui retrouve l'email
+effectivement livré (pas seulement "aucune exception côté envoi"). Les 7
+suites précédentes (141 tests) repassées sans régression malgré un
+changement de comportement de fond : `EmailIngestionService` tourne
+désormais automatiquement dès le bootstrap de `AppModule`, donc chaque
+fichier e2e (même sans rapport avec l'email) déclenche accessoirement un
+vrai cycle de polling IMAP en tâche de fond — assumé plutôt que contourné,
+conforme au principe zéro-mock : l'application est réellement vivante
+pendant les tests, pas seulement les parties qu'ils ciblent.
+
+Prochaine étape : **Phase 12 — WhatsApp (ingestion + envoi)**. Checkpoint
+externe #4 à franchir avant de commencer : créer l'app Meta/WhatsApp
+Business Cloud API avec l'utilisateur.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
 2. ✅ Clé API Anthropic — fait (Phase 8).
-3. ⏳ Provider email — requis avant Phase 11.
+3. ✅ Provider email — fait (Phase 11, compte Gmail).
 4. ⏳ Compte Meta WhatsApp Business Cloud API — requis avant Phase 12.
 
 ## Commandes utiles

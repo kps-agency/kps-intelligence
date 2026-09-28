@@ -414,6 +414,30 @@ export type Database = {
           },
         ]
       }
+      email_ingestion_state: {
+        Row: {
+          id: boolean
+          last_error: string | null
+          last_polled_at: string | null
+          last_uid: number
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_error?: string | null
+          last_polled_at?: string | null
+          last_uid?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_error?: string | null
+          last_polled_at?: string | null
+          last_uid?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           actor_id: string | null
@@ -1243,6 +1267,8 @@ export type Database = {
           created_at: string
           detected_service_id: string | null
           detected_subservice: string | null
+          email_message_id: string | null
+          email_thread_id: string | null
           id: string
           language: string | null
           original_message: string | null
@@ -1265,6 +1291,8 @@ export type Database = {
           created_at?: string
           detected_service_id?: string | null
           detected_subservice?: string | null
+          email_message_id?: string | null
+          email_thread_id?: string | null
           id?: string
           language?: string | null
           original_message?: string | null
@@ -1287,6 +1315,8 @@ export type Database = {
           created_at?: string
           detected_service_id?: string | null
           detected_subservice?: string | null
+          email_message_id?: string | null
+          email_thread_id?: string | null
           id?: string
           language?: string | null
           original_message?: string | null
