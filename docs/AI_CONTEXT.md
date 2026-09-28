@@ -1129,10 +1129,72 @@ dépôt sur l'ingestion des formulaires de sites web (`apps/api/src/website/`,
 migration `20260929100001`) — coordination par messages ; ses fichiers ne
 font pas partie du commit de la Phase 15.
 
-Prochaine étape : **Phase 16 — Matching équipe** (compétences,
-disponibilités, score explicable, recommandation — affectation finale
-humaine). Pas de checkpoint externe. Les tests réels WhatsApp (Phase 12)
-restent à faire dès que le compte Meta existe.
+## Phase 16 — Matching équipe (+ analyse des réponses, section 40)
+
+**Ajout de périmètre assumé** : l'analyse Claude des réponses de
+qualification (section 40) n'avait été prise en charge par aucune phase
+du plan (écartée en Phase 10). Or la chaîne de la section 45 — formulaire
+complété → analyse Claude → qualifiée → matching — en dépend : sans elle,
+le matching ne se serait jamais déclenché seul. Implémentée ici.
+
+- **Analyse des réponses** (`qualification-analysis/`) : réponses
+  lisibles (libellés) → Claude → verdict QUALIFIED/UNQUALIFIED/
+  NEEDS_REVIEW, complexité, étape suivante, confiance, **compétences
+  requises choisies dans le catalogue** (enum dans le schéma d'outil +
+  revérification serveur). Confiance ≥ 0,6 → statut appliqué par l'IA ;
+  sinon `QUALIFYING` + notification « Qualification à valider ». Jamais
+  par-dessus une décision déjà prise. Workflow livré
+  `qualification-analysis` (FORM_COMPLETED) + relance manuelle.
+- **Profils** (`team/`, section 47) : compétences (niveau 1-5, années),
+  disponibilité (une par collaborateur), langues parlées, pays, fuseau,
+  expertise, historique des affectations. Chacun édite son propre
+  profil ; `team.manage` (admins, responsable technique, chef de projet)
+  édite celui des autres et le catalogue (32 compétences de départ).
+- **Matching** (`matching/`, section 48) : l'IA détermine les
+  compétences requises ; le score est **déterministe et explicable**
+  (compétences × niveau 70, expérience similaire 10, disponibilité 15,
+  langue 5), chaque point justifié (« + Next.js (niveau 5/5, 6 ans) »,
+  « − disponibilité limitée »). Workflow livré `matching-on-qualified`
+  (REQUEST_QUALIFIED) + relance manuelle (`matching.manage`).
+- **Affectation = décision humaine** (section 6) :
+  `request_team_members`, distincte de la recommandation (un nouveau
+  matching ne touche jamais une affectation), idempotente, réversible,
+  notifiée au collaborateur (règle critique), statut → `ASSIGNED`.
+- Événements : QUALIFICATION_ANALYSIS_STARTED/COMPLETED, MATCHING_STARTED/
+  COMPLETED, TEAM_MEMBER_ASSIGNED/UNASSIGNED (nouveau), tous dans la
+  timeline.
+
+Frontend : `/team` (recherche, filtre par compétence) et `/team/[id]`
+(éditeurs compétences / disponibilité / profil, historique) ; sur la
+fiche demande, cartes « Analyse des réponses » et « Matching équipe »
+(score, barre, explication +/−, Affecter / Retirer, relance).
+
+Bugs réels trouvés et corrigés pendant la phase :
+- **Perte de données** : le remplacement des compétences supprimait puis
+  insérait ; une compétence inconnue (404) laissait le profil **vide**.
+  Remplacé par une fonction SQL atomique `replace_user_skills`
+  (migration `200002`) qui valide avant d'écrire, en une transaction.
+- **Relation un-à-un** : la contrainte unique sur `availability.user_id`
+  fait que PostgREST renvoie un objet (ou null), plus un tableau. Le code
+  lisait `[0]` : 500 sur un profil sans disponibilité, et surtout
+  disponibilité **toujours ignorée** dans le score de matching (erreur
+  silencieuse, trouvée parce qu'un test attendait « − disponibilité
+  limitée »).
+
+Tests : 5 unitaires (score explicable), **9 e2e réels**
+(`matching.e2e-spec.ts`) — profils et droits d'édition, validation
+(sans altérer le profil), catalogue, chaîne complète formulaire → Claude
+→ QUALIFIED → matching avec classement et explications attendus,
+affectation (droits, idempotence, notification, relance du matching
+sans perte d'affectation, retrait), réponses vagues sans qualification
+automatique, compétences requises demandées à Claude après une
+qualification manuelle. Navigateur réel : 18 contrôles, axe sans
+violation (profil en édition, liste, fiche avec matching).
+
+Prochaine étape : **Phase 17 — Opportunités** (pipeline Kanban, création
+automatique depuis une demande qualifiée + matching terminé). Pas de
+checkpoint externe. Les tests réels WhatsApp (Phase 12) restent à faire
+dès que le compte Meta existe.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).

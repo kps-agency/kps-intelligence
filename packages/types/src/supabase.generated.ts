@@ -138,7 +138,7 @@ export type Database = {
           {
             foreignKeyName: "availability_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -667,6 +667,7 @@ export type Database = {
           created_at: string
           explanation: Json
           id: string
+          rank: number
           request_id: string
           score: number
           user_id: string
@@ -675,6 +676,7 @@ export type Database = {
           created_at?: string
           explanation: Json
           id?: string
+          rank?: number
           request_id: string
           score: number
           user_id: string
@@ -683,6 +685,7 @@ export type Database = {
           created_at?: string
           explanation?: Json
           id?: string
+          rank?: number
           request_id?: string
           score?: number
           user_id?: string
@@ -1298,6 +1301,55 @@ export type Database = {
         }
         Relationships: []
       }
+      request_team_members: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          id: string
+          request_id: string
+          score: number | null
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          request_id: string
+          score?: number | null
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          request_id?: string
+          score?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_team_members_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_team_members_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       requests: {
         Row: {
           ai_confidence: number | null
@@ -1677,11 +1729,14 @@ export type Database = {
       users: {
         Row: {
           avatar_url: string | null
+          country: string | null
           created_at: string
           email: string
+          expertise: string | null
           first_name: string
           id: string
           language: string
+          languages: string[]
           last_name: string
           phone: string | null
           role_id: string
@@ -1692,11 +1747,14 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          country?: string | null
           created_at?: string
           email: string
+          expertise?: string | null
           first_name: string
           id: string
           language?: string
+          languages?: string[]
           last_name: string
           phone?: string | null
           role_id: string
@@ -1707,11 +1765,14 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          country?: string | null
           created_at?: string
           email?: string
+          expertise?: string | null
           first_name?: string
           id?: string
           language?: string
+          languages?: string[]
           last_name?: string
           phone?: string | null
           role_id?: string
@@ -1874,13 +1935,17 @@ export type Database = {
         Args: { p_form_id: string; p_step_ids: string[] }
         Returns: undefined
       }
+      replace_user_skills: {
+        Args: { p_skills: Json; p_user_id: string }
+        Returns: undefined
+      }
       set_primary_contact: {
         Args: { p_contact_id: string }
         Returns: undefined
       }
     }
     Enums: {
-      ai_analysis_kind: "REQUEST_ANALYSIS"
+      ai_analysis_kind: "REQUEST_ANALYSIS" | "QUALIFICATION_ANALYSIS"
       ai_analysis_status: "COMPLETED" | "FAILED"
       availability_status: "AVAILABLE" | "BUSY" | "UNAVAILABLE"
       client_status: "PROSPECT" | "ACTIVE" | "INACTIVE" | "CHURNED"
@@ -1925,6 +1990,7 @@ export type Database = {
         | "REQUEST_ASSIGNED"
         | "TEAM_NOTIFIED"
         | "QUALIFICATION_REMINDER_SENT"
+        | "TEAM_MEMBER_UNASSIGNED"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2138,7 +2204,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      ai_analysis_kind: ["REQUEST_ANALYSIS"],
+      ai_analysis_kind: ["REQUEST_ANALYSIS", "QUALIFICATION_ANALYSIS"],
       ai_analysis_status: ["COMPLETED", "FAILED"],
       availability_status: ["AVAILABLE", "BUSY", "UNAVAILABLE"],
       client_status: ["PROSPECT", "ACTIVE", "INACTIVE", "CHURNED"],
@@ -2183,6 +2249,7 @@ export const Constants = {
         "REQUEST_ASSIGNED",
         "TEAM_NOTIFIED",
         "QUALIFICATION_REMINDER_SENT",
+        "TEAM_MEMBER_UNASSIGNED",
       ],
       form_field_type: [
         "TEXT",

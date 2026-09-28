@@ -6,6 +6,8 @@ import { ApiError } from "@/lib/api-client";
 import { useRequestDetail } from "@/lib/queries/requests";
 import { RequestAnalysisCard } from "./request-analysis-card";
 import { RequestInfoCard } from "./request-info-card";
+import { RequestMatchingCard } from "./request-matching-card";
+import { RequestQualificationAnalysisCard } from "./request-qualification-analysis-card";
 import { RequestQualificationCard } from "./request-qualification-card";
 import { RequestTimelineCard } from "./request-timeline-card";
 
@@ -61,6 +63,8 @@ export function RequestDetail({
       <RequestInfoCard request={req.data} canManage={canManage} />
       <RequestAnalysisCard requestId={requestId} canManage={canManage} />
       {canManage && <RequestQualificationCard request={req.data} />}
+      <RequestQualificationAnalysisCard requestId={requestId} canManage={canManage} />
+      <RequestMatchingCard requestId={requestId} />
       <RequestTimelineCard requestId={requestId} />
     </div>
   );

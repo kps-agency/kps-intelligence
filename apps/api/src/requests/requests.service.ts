@@ -2,13 +2,13 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { AI_LOW_CONFIDENCE_THRESHOLD } from "@kps/shared";
 import { EventEntityType, EventType } from "@kps/types";
 import type {
+  AiAnalysisKind,
   AiAnalysisResponse,
   AiAnalysisStatus,
   AssignableUserResponse,
   Database,
   PaginatedResponse,
   PriorityLevel,
-  RequestAnalysisResult,
   RequestResponse,
   RequestSource,
   RequestStatus,
@@ -89,14 +89,15 @@ function toResponse(row: RequestWithLinks): RequestResponse {
   };
 }
 
-function toAnalysisResponse(row: AiAnalysisRow): AiAnalysisResponse {
+export function toAnalysisResponse(row: AiAnalysisRow): AiAnalysisResponse {
   return {
     id: row.id,
     requestId: row.request_id,
+    kind: row.kind as AiAnalysisKind,
     status: row.status as AiAnalysisStatus,
     model: row.model,
     confidence: row.confidence,
-    result: row.result as unknown as RequestAnalysisResult | null,
+    result: row.result as unknown as AiAnalysisResponse["result"],
     error: row.error,
     createdAt: row.created_at,
   };

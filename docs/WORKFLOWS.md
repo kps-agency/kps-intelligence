@@ -48,6 +48,8 @@ satisfait que `notExists`.
 | `REQUIRE_QUALIFICATION` | Émet `QUALIFICATION_REQUIRED` si le service a un formulaire publié, sans lien existant ni qualification déjà requise pour ce service |
 | `SEND_QUALIFICATION_LINK` | Crée le lien et l'envoie sur le canal par lequel le prospect a écrit (email dans le fil d'origine, ou WhatsApp) |
 | `SEND_QUALIFICATION_REMINDER` (`channel` = `EMAIL`/`WHATSAPP`) | Relance avec un lien neuf, émet `QUALIFICATION_REMINDER_SENT` |
+| `ANALYZE_QUALIFICATION` | Analyse des réponses par Claude (section 40) : qualifie, disqualifie, ou demande une validation humaine |
+| `START_MATCHING` | Calcule le matching équipe de la demande (recommandation) |
 
 ## Workflows livrés
 
@@ -56,6 +58,11 @@ satisfait que `notExists`.
 | `qualification-required` | `SERVICE_DETECTED` | confiance ≥ 0,6 | `REQUIRE_QUALIFICATION` |
 | `qualification-auto-send` | `QUALIFICATION_REQUIRED` | prospect joignable | `SEND_QUALIFICATION_LINK` |
 | `qualification-reminders` | `QUALIFICATION_LINK_SENT` | — | 48 h → si lien toujours « envoyé » → relance email ; 24 h → idem → relance WhatsApp. Annulé si lien ouvert, formulaire commencé/complété, lien révoqué ou expiré |
+| `qualification-analysis` | `FORM_COMPLETED` | — | `ANALYZE_QUALIFICATION` |
+| `matching-on-qualified` | `REQUEST_QUALIFIED` | — | `START_MATCHING` |
+
+Les deux derniers (Phase 16) réalisent la chaîne de la section 45 :
+formulaire complété → analyse Claude → qualifiée → matching.
 
 Les deux premiers remplacent la règle codée en dur de la Phase 13
 (module `qualification-dispatch`, supprimé) : le seuil de confiance et

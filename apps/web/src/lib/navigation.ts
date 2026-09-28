@@ -81,7 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Delivery",
     items: [
       { label: "Missions", href: "/missions", icon: Briefcase, available: false, phase: 19 },
-      { label: "Équipe", href: "/team", icon: Users, available: false, phase: 16 },
+      { label: "Équipe", href: "/team", icon: Users, available: true, requiredPermission: "team.read" },
     ],
   },
   {

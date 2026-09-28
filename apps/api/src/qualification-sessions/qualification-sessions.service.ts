@@ -256,6 +256,40 @@ export class QualificationSessionsService {
     return this.toResponse(data);
   }
 
+  // Réponses de la dernière qualification complétée d'une demande, sous
+  // forme lisible (libellés des champs et des options) — pour l'analyse
+  // des réponses par l'IA (section 40).
+  async completedResponses(
+    requestId: string,
+  ): Promise<{ sessionId: string; responses: { label: string; value: string }[] } | null> {
+    const { data: session, error } = await this.supabase
+      .getClient()
+      .from("qualification_sessions")
+      .select("*")
+      .eq("request_id", requestId)
+      .eq("status", "COMPLETED")
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw toDbException(error);
+    if (!session) return null;
+
+    const form = await this.formsService.findById(session.form_id);
+    const map = await this.buildResponseMap(session.id, form);
+    const responses: { label: string; value: string }[] = [];
+    for (const step of form.steps) {
+      for (const field of step.fields) {
+        const raw = map[field.key];
+        if (isEmptyValue(raw)) continue;
+        const optionLabel = (v: unknown) =>
+          field.options?.find((o) => o.value === v)?.label ?? String(v);
+        const value = Array.isArray(raw) ? raw.map(optionLabel).join(", ") : optionLabel(raw);
+        responses.push({ label: field.label, value });
+      }
+    }
+    return { sessionId: session.id, responses };
+  }
+
   // Statut réel (expiration constatée et journalisée au passage).
   async effectiveStatus(id: string): Promise<QualificationSessionStatus> {
     return (await this.requireSession(id)).status as QualificationSessionStatus;

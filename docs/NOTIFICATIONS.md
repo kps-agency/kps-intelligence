@@ -59,6 +59,9 @@ Une demande ne peut être assignée qu'à un utilisateur actif dont le rôle a
 | `REQUEST_QUALIFIED` | Demande qualifiée | Commercial + Responsable | In-app + email | Haute |
 | `REQUEST_ASSIGNED` | Demande assignée (critique) | Assigné | In-app + email | Haute |
 | `CONVERSATION_MESSAGE_RECEIVED` | Nouveau message du prospect | Commercial | In-app | Moyenne |
+| `QUALIFICATION_ANALYSIS_COMPLETED` (validation humaine requise) | Qualification à valider | Responsable + Commercial | In-app + email | Haute |
+| `MATCHING_COMPLETED` | Matching terminé | Responsable + Responsable technique | In-app | Moyenne |
+| `TEAM_MEMBER_ASSIGNED` | Affectation à une demande (critique) | Collaborateur affecté | In-app + email | Haute |
 
 `QUALIFICATION_REQUIRED` n'est notifié que pour une demande saisie à la
 main : une demande entrante (email/WhatsApp) reçoit le lien

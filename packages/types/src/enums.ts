@@ -85,6 +85,22 @@ export enum RequestStatus {
 // documents (section 55) ajouteront leurs propres valeurs plus tard.
 export enum AiAnalysisKind {
   REQUEST_ANALYSIS = "REQUEST_ANALYSIS",
+  // Analyse des réponses de qualification (section 40, Phase 16).
+  QUALIFICATION_ANALYSIS = "QUALIFICATION_ANALYSIS",
+}
+
+export enum AvailabilityStatus {
+  AVAILABLE = "AVAILABLE",
+  BUSY = "BUSY",
+  UNAVAILABLE = "UNAVAILABLE",
+}
+
+// Verdict de l'analyse des réponses (section 40). NEEDS_REVIEW : l'IA ne
+// peut pas trancher, une validation humaine est requise.
+export enum QualificationVerdict {
+  QUALIFIED = "QUALIFIED",
+  UNQUALIFIED = "UNQUALIFIED",
+  NEEDS_REVIEW = "NEEDS_REVIEW",
 }
 
 export enum AiAnalysisStatus {
@@ -218,6 +234,8 @@ export enum EventType {
   TEAM_NOTIFIED = "TEAM_NOTIFIED",
   // Ajout Phase 15 (relances, section 39).
   QUALIFICATION_REMINDER_SENT = "QUALIFICATION_REMINDER_SENT",
+  // Ajout Phase 16.
+  TEAM_MEMBER_UNASSIGNED = "TEAM_MEMBER_UNASSIGNED",
 }
 
 export enum WorkflowRunStatus {

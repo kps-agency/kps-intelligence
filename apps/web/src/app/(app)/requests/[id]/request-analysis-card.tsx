@@ -1,7 +1,7 @@
 "use client";
 
 import { AI_LOW_CONFIDENCE_THRESHOLD, REQUEST_INTENT_LABELS } from "@kps/shared";
-import type { AiAnalysisResponse } from "@kps/types";
+import type { AiAnalysisResponse, RequestAnalysisResult } from "@kps/types";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kps/ui";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
@@ -25,7 +25,9 @@ function AnalysisDetails({ analysis }: { analysis: AiAnalysisResponse }) {
     );
   }
 
-  const result = analysis.result;
+  // Carte réservée à l'analyse de la demande (les analyses des réponses
+  // de qualification ont leur propre carte).
+  const result = analysis.result as RequestAnalysisResult | null;
   if (!result) return null;
 
   const lowConfidence =
@@ -79,7 +81,11 @@ export function RequestAnalysisCard({
   requestId: string;
   canManage: boolean;
 }) {
-  const analyses = useRequestAnalyses(requestId);
+  const allAnalyses = useRequestAnalyses(requestId);
+  const analyses = {
+    ...allAnalyses,
+    data: allAnalyses.data?.filter((a) => a.kind === "REQUEST_ANALYSIS"),
+  };
   const analyze = useAnalyzeRequest(requestId);
   const serverError = analyze.error instanceof ApiError ? analyze.error : null;
 

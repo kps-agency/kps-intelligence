@@ -13,13 +13,16 @@ import { EmailModule } from "./email/email.module";
 import { EventsModule } from "./events/events.module";
 import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
+import { MatchingModule } from "./matching/matching.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
+import { QualificationAnalysisModule } from "./qualification-analysis/qualification-analysis.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
 import { ServicesModule } from "./services/services.module";
 import { SupabaseModule } from "./supabase/supabase.module";
+import { TeamModule } from "./team/team.module";
 import { UsersModule } from "./users/users.module";
 import { WebsiteModule } from "./website/website.module";
 import { WhatsappModule } from "./whatsapp/whatsapp.module";
@@ -79,6 +82,9 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     WhatsappModule,
     WebsiteModule,
     WorkflowsModule,
+    QualificationAnalysisModule,
+    MatchingModule,
+    TeamModule,
     NotificationsModule,
     AuthModule,
   ],

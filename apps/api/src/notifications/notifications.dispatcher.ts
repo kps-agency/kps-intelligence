@@ -35,7 +35,7 @@ interface RequestContext {
 
 const DEFAULT_LANGUAGE = "fr";
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
-const AUDIENCE_ROLES: Record<Exclude<Audience, "ASSIGNEE">, string[]> = {
+const AUDIENCE_ROLES: Record<Exclude<Audience, "ASSIGNEE" | "TEAM_MEMBER">, string[]> = {
   COMMERCIAL: ["SALES"],
   RESPONSABLE: ["DIRECTOR"],
   TECHNICAL_MANAGER: ["TECHNICAL_MANAGER"],
@@ -199,6 +199,10 @@ export class NotificationsDispatcher implements OnModuleInit {
     event: DomainEvent,
     request: RequestContext,
   ): Promise<Recipient[]> {
+    if (audience === "TEAM_MEMBER") {
+      const userId = event.payload.userId;
+      return typeof userId === "string" ? this.activeUsers({ ids: [userId] }) : [];
+    }
     if (audience === "ASSIGNEE") {
       const assigneeId =
         typeof event.payload.assignedUserId === "string"
@@ -299,6 +303,11 @@ export class NotificationsDispatcher implements OnModuleInit {
       confidence,
       channel: CHANNEL_LABELS[String(payload.channel ?? "")] ?? "",
       actorName: await this.actorName(event),
+      topCandidates: Array.isArray(payload.top)
+        ? (payload.top as { name?: string; score?: number }[])
+            .map((c) => `${c.name ?? ""} (${c.score ?? 0} %)`)
+            .join(", ") || "aucun profil disponible"
+        : "—",
       link: `${this.config.getOrThrow<string>("APP_URL")}/requests/${request.id}`,
     };
   }

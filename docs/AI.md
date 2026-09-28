@@ -10,6 +10,8 @@ Phase 8. Les autres méthodes du catalogue seront ajoutées à l'interface
 ```text
 AIService (interface)                     -- apps/api/src/ai/ai.service.interface.ts
   analyzeRequest(input): RequestAnalysisResult
+  analyzeQualification(input): QualificationAnalysisResult   -- Phase 16, section 40
+  extractRequiredSkills(input): string[]                     -- Phase 16, section 48
   getModel(): string
   getPromptVersion(): string
 
@@ -23,22 +25,54 @@ ajouter une nouvelle classe qui implémente `AIService`, zéro changement
 chez les appelants (`RequestsService`).
 
 Méthodes du catalogue section 20 pas encore implémentées :
-`classifyRequest`, `extractEntities`, `analyzeQualification`,
-`generateSummary`, `suggestMatchingProfiles`, `generateClientResponse`,
-`generateFollowUp` — elles arriveront avec les phases qui les motivent
-(qualification, matching, notifications).
+`classifyRequest`, `extractEntities`, `generateSummary`,
+`generateClientResponse`, `generateFollowUp` — elles arriveront avec les
+phases qui les motivent. `suggestMatchingProfiles` est volontairement
+remplacé par `extractRequiredSkills` + un score déterministe (voir
+Matching ci-dessous).
 
 ## Prompts versionnés
 
 ```text
 apps/api/src/ai/prompts/
-  request-analysis.ts   -- REQUEST_ANALYSIS_PROMPT_VERSION = "request-analysis@1"
+  request-analysis.ts        -- "request-analysis@1"
+  qualification-analysis.ts  -- "qualification-analysis@1" (réponses du formulaire)
+                             -- "required-skills@1" (compétences requises)
 ```
 
 Chaque fichier exporte une constante de version — toute modification du
 prompt ou du schéma d'outil en production doit l'incrémenter. La version
 est persistée avec chaque analyse (`ai_analyses.prompt_version`), donc on
 peut toujours savoir quelle version a produit quel résultat.
+
+## Analyse des réponses de qualification (section 40, Phase 16)
+
+Déclenchée par le workflow `qualification-analysis` (`FORM_COMPLETED`) ou
+manuellement (`POST /requests/:id/qualification-analysis`). Claude reçoit
+la demande et les réponses **lisibles** (libellés des champs et des
+options). Sortie `QualificationAnalysisResult` : verdict
+`QUALIFIED`/`UNQUALIFIED`/`NEEDS_REVIEW`, complexité, urgence, résumé,
+informations manquantes, étape suivante, confiance, et **compétences
+requises choisies dans le catalogue `skills`** (le schéma d'outil les
+restreint par `enum`, et la sortie est revérifiée côté serveur).
+
+Décision : confiance ≥ 0,6 et verdict tranché → statut `QUALIFIED` ou
+`UNQUALIFIED` appliqué par l'IA (la qualification est automatisable,
+section 6) ; sinon statut `QUALIFYING` et notification « Qualification à
+valider » au responsable. L'IA ne décide jamais par-dessus une décision
+déjà prise (statut déjà au-delà de la qualification).
+
+## Matching (section 48)
+
+L'IA détermine **quelles compétences** le projet exige (analyse des
+réponses, ou `extractRequiredSkills` si la demande a été qualifiée à la
+main) ; le **score** est ensuite calculé de façon déterministe
+(`apps/api/src/matching/matching-score.ts`) : compétences × niveau (70),
+expérience similaire (10), disponibilité (15), langue du prospect (5).
+Choix délibéré plutôt qu'un score généré par le modèle : reproductible,
+auditable, et chaque point est justifié dans l'explication (« + Next.js
+(niveau 5/5, 6 ans) », « − disponibilité limitée »). Le résultat est une
+recommandation ; l'affectation reste humaine.
 
 ## Sortie structurée forcée (tool use)
 

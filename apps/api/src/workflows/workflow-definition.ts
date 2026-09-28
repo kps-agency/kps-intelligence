@@ -48,6 +48,8 @@ export const ACTION_TYPES: Record<
     label: "Relancer le prospect",
     params: { channel: ["EMAIL", "WHATSAPP"] },
   },
+  ANALYZE_QUALIFICATION: { label: "Analyser les réponses avec Claude", params: {} },
+  START_MATCHING: { label: "Calculer le matching équipe", params: {} },
 };
 
 export const MAX_STEPS = 10;

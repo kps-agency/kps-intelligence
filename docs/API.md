@@ -60,7 +60,8 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | requests | `/api/v1/requests` (source MANUAL uniquement — EMAIL/WHATSAPP arrivent par webhook aux Phases 11-12) | 7 |
 | notifications | **Utilisateur connecté, ses propres données uniquement** — `GET /api/v1/notifications` (`status=all\|unread\|read`, `priority`, `search`, pagination), `GET .../unread-count`, `POST .../:id/read`, `POST .../read-all`, `GET/PUT .../preferences`. Assignation : `GET /api/v1/requests/assignable-users` (`requests.manage`), `assignedUserId` sur `POST`/`PATCH /requests`. Voir `docs/NOTIFICATIONS.md` | 14 |
 | workflows | `GET /api/v1/workflows`, `GET .../vocabulary`, `GET .../:id`, `GET .../:id/runs` (`workflows.read` : admins, directeurs) ; `PUT .../:id` (`workflows.manage` : admins — définition complète revalidée, déclencheur non modifiable). Pas de création/suppression. Voir `docs/WORKFLOWS.md` | 15 |
-| team / skills / matching | `/api/v1/team`, `/api/v1/matching` | 16 |
+| team / skills | `GET /api/v1/team`, `GET .../:id` (profil + historique), `GET /api/v1/skills` (`team.read` : tous les rôles) ; `PUT /api/v1/team/:id/profile\|skills\|availability` (son propre profil, ou `team.manage`) ; `POST /api/v1/skills` (`team.manage`) | 16 |
+| matching | `GET /api/v1/requests/:id/matching` (`requests.read`) ; `POST .../matching` (relance), `POST .../team-members` {userId}, `DELETE .../team-members/:userId` (`matching.manage`). Analyse des réponses : `POST /api/v1/requests/:id/qualification-analysis` (`requests.manage`) | 16 |
 | opportunities | `/api/v1/opportunities` | 17 |
 | quotes | `/api/v1/quotes` | 18 |
 | missions / tasks | `/api/v1/missions`, `/api/v1/tasks` | 19 |

@@ -9,7 +9,13 @@ import type { DomainEvent } from "../events/event-bus.service";
 // - ASSIGNEE : la personne à qui la demande vient d'être confiée.
 // Si personne n'occupe le rôle visé, les administrateurs reçoivent la
 // notification à sa place : une étape n'est jamais notifiée à personne.
-export type Audience = "COMMERCIAL" | "RESPONSABLE" | "TECHNICAL_MANAGER" | "ASSIGNEE";
+export type Audience =
+  | "COMMERCIAL"
+  | "RESPONSABLE"
+  | "TECHNICAL_MANAGER"
+  | "ASSIGNEE"
+  // Collaborateur affecté à la demande (payload.userId de l'événement).
+  | "TEAM_MEMBER";
 
 export type RuleChannel = "IN_APP" | "EMAIL";
 
@@ -111,6 +117,33 @@ export const NOTIFICATION_RULES: NotificationRule[] = [
     eventType: EventType.REQUEST_ASSIGNED,
     label: "Demande qui m'est assignée",
     audiences: ["ASSIGNEE"],
+    channels: ["IN_APP", "EMAIL"],
+    priority: PriorityLevel.HIGH,
+    critical: true,
+  },
+  {
+    // Section 40 : analyse incertaine → validation humaine, responsable notifié.
+    key: "QUALIFICATION_REVIEW_REQUIRED",
+    eventType: EventType.QUALIFICATION_ANALYSIS_COMPLETED,
+    label: "Qualification à valider",
+    audiences: ["RESPONSABLE", "COMMERCIAL"],
+    channels: ["IN_APP", "EMAIL"],
+    priority: PriorityLevel.HIGH,
+    applies: (event) => event.payload.needsReview === true,
+  },
+  {
+    key: "MATCHING_COMPLETED",
+    eventType: EventType.MATCHING_COMPLETED,
+    label: "Matching terminé",
+    audiences: ["RESPONSABLE", "TECHNICAL_MANAGER"],
+    channels: ["IN_APP"],
+    priority: PriorityLevel.MEDIUM,
+  },
+  {
+    key: "TEAM_MEMBER_ASSIGNED",
+    eventType: EventType.TEAM_MEMBER_ASSIGNED,
+    label: "Affectation à une demande",
+    audiences: ["TEAM_MEMBER"],
     channels: ["IN_APP", "EMAIL"],
     priority: PriorityLevel.HIGH,
     critical: true,

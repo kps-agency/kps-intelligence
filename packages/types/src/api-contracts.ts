@@ -1,5 +1,7 @@
 import type {
+  AiAnalysisKind,
   AiAnalysisStatus,
+  AvailabilityStatus,
   ClientStatus,
   EventActorType,
   EventEntityType,
@@ -9,6 +11,7 @@ import type {
   NotificationChannel,
   PriorityLevel,
   QualificationSessionStatus,
+  QualificationVerdict,
   RequestIntent,
   RequestSource,
   RequestStatus,
@@ -252,14 +255,29 @@ export interface RequestAnalysisResult {
 }
 
 // Réponse de GET /requests/:id/analyses et POST /requests/:id/analyze.
+// Résultat de l'analyse des réponses de qualification (section 40).
+export interface QualificationAnalysisResult {
+  qualificationStatus: QualificationVerdict;
+  service: ServiceSlug | null;
+  complexity: "LOW" | "MEDIUM" | "HIGH" | null;
+  urgency: PriorityLevel | null;
+  summary: string;
+  missingInformation: string[];
+  recommendedNextStep: string;
+  confidence: number;
+  // Compétences nécessaires, choisies dans le catalogue `skills`.
+  requiredSkills: string[];
+}
+
 export interface AiAnalysisResponse {
   id: string;
   requestId: string;
+  kind: AiAnalysisKind;
   status: AiAnalysisStatus;
   model: string;
   confidence: number | null;
-  // `null` quand status = FAILED.
-  result: RequestAnalysisResult | null;
+  // `null` quand status = FAILED. Forme selon `kind`.
+  result: RequestAnalysisResult | QualificationAnalysisResult | null;
   // Message générique seulement quand status = FAILED — jamais le détail
   // brut d'une erreur Anthropic.
   error: string | null;
@@ -532,6 +550,104 @@ export interface UpdateNotificationPreferenceRequest {
   eventType: EventType;
   channel: NotificationChannel;
   enabled: boolean;
+}
+
+// ---- Équipe et matching (sections 47, 48) ----
+
+export interface SkillResponse {
+  id: string;
+  name: string;
+  category: string | null;
+}
+
+export interface TeamMemberSkill {
+  skillId: string;
+  name: string;
+  category: string | null;
+  proficiencyLevel: number;
+  yearsExperience: number | null;
+}
+
+export interface TeamMemberAvailability {
+  status: AvailabilityStatus;
+  capacityHoursPerWeek: number | null;
+  availableFrom: string | null;
+  notes: string | null;
+}
+
+export interface TeamMemberResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  roleKey: string;
+  languages: string[];
+  country: string | null;
+  timezone: string;
+  expertise: string | null;
+  skills: TeamMemberSkill[];
+  availability: TeamMemberAvailability | null;
+  activeAssignments: number;
+}
+
+// Historique de projets (section 47) : demandes sur lesquelles le
+// collaborateur a été affecté.
+export interface TeamMemberHistoryItem {
+  requestId: string;
+  reference: string;
+  subject: string;
+  status: RequestStatus;
+  serviceName: string | null;
+  assignedAt: string;
+}
+
+export interface TeamMemberDetailResponse extends TeamMemberResponse {
+  history: TeamMemberHistoryItem[];
+}
+
+export interface UpdateTeamProfileRequest {
+  languages: string[];
+  country: string | null;
+  timezone: string;
+  expertise: string | null;
+}
+
+export interface UpdateTeamSkillsRequest {
+  skills: { skillId: string; proficiencyLevel: number; yearsExperience: number | null }[];
+}
+
+export type UpdateAvailabilityRequest = TeamMemberAvailability;
+
+// Score explicable (section 48) : chaque point gagné ou perdu est justifié.
+export interface MatchingExplanation {
+  positives: string[];
+  negatives: string[];
+  requiredSkills: string[];
+  factors: { skills: number; experience: number; availability: number; language: number };
+}
+
+export interface MatchingCandidateResponse {
+  userId: string;
+  fullName: string;
+  roleKey: string;
+  rank: number;
+  score: number;
+  explanation: MatchingExplanation;
+  assigned: boolean;
+}
+
+export interface RequestTeamMemberResponse {
+  userId: string;
+  fullName: string;
+  score: number | null;
+  assignedAt: string;
+  assignedByName: string | null;
+}
+
+export interface RequestMatchingResponse {
+  ranAt: string | null;
+  requiredSkills: string[];
+  candidates: MatchingCandidateResponse[];
+  teamMembers: RequestTeamMemberResponse[];
 }
 
 // ---- Workflow Engine (sections 39, 45, 46) ----

@@ -95,6 +95,24 @@ function describe(event: TimelineEventResponse): string {
       return "Demande clôturée";
     case "REQUEST_STATUS_CHANGED":
       return `Statut : ${statusLabel(p.from)} → ${statusLabel(p.to)}`;
+    case "QUALIFICATION_ANALYSIS_STARTED":
+      return "Analyse des réponses démarrée";
+    case "QUALIFICATION_ANALYSIS_COMPLETED":
+      return p.needsReview
+        ? "Réponses analysées — validation humaine requise"
+        : `Réponses analysées (confiance ${Math.round(Number(p.confidence) * 100)} %)`;
+    case "MATCHING_STARTED":
+      return "Matching équipe démarré";
+    case "MATCHING_COMPLETED":
+      return Array.isArray(p.top) && p.top.length > 0
+        ? `Matching terminé : ${(p.top as { name?: string; score?: number }[])
+            .map((c) => `${c.name ?? ""} ${c.score ?? 0} %`)
+            .join(", ")}`
+        : "Matching terminé : aucun profil disponible";
+    case "TEAM_MEMBER_ASSIGNED":
+      return `${text(p.userName)} affecté(e) à la demande`;
+    case "TEAM_MEMBER_UNASSIGNED":
+      return `${text(p.userName)} retiré(e) de la demande`;
     case "QUALIFICATION_REMINDER_SENT":
       return `Relance envoyée ${CHANNEL_LABELS[text(p.channel)] ?? ""}`.trim();
     case "REQUEST_ASSIGNED":

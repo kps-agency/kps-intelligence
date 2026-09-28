@@ -6,6 +6,8 @@ import {
   type ConversationChannel,
 } from "../conversations/conversations.service";
 import { EmailService } from "../email/email.service";
+import { MatchingService } from "../matching/matching.service";
+import { QualificationAnalysisService } from "../qualification-analysis/qualification-analysis.service";
 import { AUTOMATION_ACTOR, EventBus } from "../events/event-bus.service";
 import { QualificationSessionsService } from "../qualification-sessions/qualification-sessions.service";
 import { ServicesService } from "../services/services.service";
@@ -42,6 +44,8 @@ export class WorkflowActionsService {
     private readonly conversationsService: ConversationsService,
     private readonly emailService: EmailService,
     private readonly whatsappService: WhatsappService,
+    private readonly qualificationAnalysis: QualificationAnalysisService,
+    private readonly matching: MatchingService,
   ) {}
 
   async execute(
@@ -56,6 +60,21 @@ export class WorkflowActionsService {
         return this.sendQualificationLink(context);
       case "SEND_QUALIFICATION_REMINDER":
         return this.sendQualificationReminder(context, params.channel as ConversationChannel);
+      case "ANALYZE_QUALIFICATION": {
+        const analysis = await this.qualificationAnalysis.analyze(context.requestId, AUTOMATION_ACTOR);
+        if (analysis.status === "FAILED") throw new Error(analysis.error ?? "Analyse en échec.");
+        return {
+          status: "DONE",
+          detail: `Réponses analysées (confiance ${Math.round((analysis.confidence ?? 0) * 100)} %).`,
+        };
+      }
+      case "START_MATCHING": {
+        const matching = await this.matching.run(context.requestId, AUTOMATION_ACTOR);
+        return {
+          status: "DONE",
+          detail: `${matching.candidates.length} collaborateur(s) classé(s).`,
+        };
+      }
       default:
         throw new Error(`Action inconnue : ${type}`);
     }

@@ -255,9 +255,15 @@ describe("Workflow Engine (intégration réelle)", () => {
   });
 
   describe("API", () => {
-    it("les trois workflows livrés sont exposés avec leur définition", async () => {
-      expect([...originals.keys()].sort()).toEqual(
-        ["qualification-auto-send", "qualification-reminders", "qualification-required"].sort(),
+    it("les workflows livrés sont exposés avec leur définition", async () => {
+      expect([...originals.keys()]).toEqual(
+        expect.arrayContaining([
+          "qualification-auto-send",
+          "qualification-reminders",
+          "qualification-required",
+          "qualification-analysis",
+          "matching-on-qualified",
+        ]),
       );
       const reminders = workflow("qualification-reminders");
       expect(reminders.triggerEvent).toBe("QUALIFICATION_LINK_SENT");
