@@ -57,7 +57,7 @@ Squelette créé en Phase 1. Rempli progressivement à partir de la Phase 4
 | clients | `/api/v1/clients` | 6 |
 | contacts | `/api/v1/clients/:clientId/contacts`, `/api/v1/contacts` | 6 |
 | requests | `/api/v1/requests` (source MANUAL uniquement — EMAIL/WHATSAPP arrivent par webhook aux Phases 11-12) | 7 |
-| notifications | `/api/v1/notifications` | 14 |
+| notifications | **Utilisateur connecté, ses propres données uniquement** — `GET /api/v1/notifications` (`status=all\|unread\|read`, `priority`, `search`, pagination), `GET .../unread-count`, `POST .../:id/read`, `POST .../read-all`, `GET/PUT .../preferences`. Assignation : `GET /api/v1/requests/assignable-users` (`requests.manage`), `assignedUserId` sur `POST`/`PATCH /requests`. Voir `docs/NOTIFICATIONS.md` | 14 |
 | workflows | `/api/v1/workflows` | 15 |
 | team / skills / matching | `/api/v1/team`, `/api/v1/matching` | 16 |
 | opportunities | `/api/v1/opportunities` | 17 |

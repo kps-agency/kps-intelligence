@@ -56,4 +56,10 @@ export class UpdateRequestDto {
   @ValidateIf((_, value) => value !== null)
   @IsUUID("4", { message: "contactId doit être un UUID." })
   contactId?: string | null;
+
+  // `null` retire l'assignation.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID("4", { message: "assignedUserId doit être un UUID." })
+  assignedUserId?: string | null;
 }

@@ -38,6 +38,14 @@ function statusLabel(value: unknown): string {
   return REQUEST_STATUS_LABELS[value as RequestStatus] ?? text(value);
 }
 
+function notifiedNames(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  return value
+    .map((r: { name?: unknown }) => (typeof r?.name === "string" ? r.name : ""))
+    .filter(Boolean)
+    .join(", ");
+}
+
 function describe(event: TimelineEventResponse): string {
   const p = event.payload;
   switch (event.type) {
@@ -87,6 +95,10 @@ function describe(event: TimelineEventResponse): string {
       return "Demande clôturée";
     case "REQUEST_STATUS_CHANGED":
       return `Statut : ${statusLabel(p.from)} → ${statusLabel(p.to)}`;
+    case "REQUEST_ASSIGNED":
+      return `Demande assignée à ${text(p.assignedUserName) || "un utilisateur"}`;
+    case "TEAM_NOTIFIED":
+      return `Notifié (${text(p.label).toLowerCase()}) : ${notifiedNames(p.recipients)}`;
     default:
       return event.type;
   }

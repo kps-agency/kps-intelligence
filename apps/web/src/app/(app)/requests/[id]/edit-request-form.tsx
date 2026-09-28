@@ -10,7 +10,7 @@ import { z } from "zod";
 import { ApiError } from "@/lib/api-client";
 import { useClients } from "@/lib/queries/clients";
 import { useContactsByClient } from "@/lib/queries/contacts";
-import { useUpdateRequest } from "@/lib/queries/requests";
+import { useAssignableUsers, useUpdateRequest } from "@/lib/queries/requests";
 
 const NONE = "__none__";
 const CLIENT_PICKER_LIMIT = 100;
@@ -25,6 +25,7 @@ const schema = z.object({
   urgency: z.nativeEnum(PriorityLevel).optional().or(z.literal("")),
   clientId: z.string(),
   contactId: z.string(),
+  assignedUserId: z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -40,6 +41,7 @@ function toFormValues(req: RequestResponse): FormValues {
     urgency: req.urgency ?? "",
     clientId: req.clientId ?? NONE,
     contactId: req.contactId ?? NONE,
+    assignedUserId: req.assignedUserId ?? NONE,
   };
 }
 
@@ -52,6 +54,7 @@ export function EditRequestForm({
 }) {
   const updateRequest = useUpdateRequest(request.id);
   const clients = useClients({ page: 1, limit: CLIENT_PICKER_LIMIT });
+  const assignableUsers = useAssignableUsers();
   const {
     register,
     handleSubmit,
@@ -82,6 +85,7 @@ export function EditRequestForm({
         urgency: values.urgency || undefined,
         clientId: values.clientId === NONE ? null : values.clientId,
         contactId: values.contactId === NONE ? null : values.contactId,
+        assignedUserId: values.assignedUserId === NONE ? null : values.assignedUserId,
       },
       { onSuccess: onDone },
     );
@@ -145,6 +149,25 @@ export function EditRequestForm({
             ))}
           </Select>
         </div>
+      </div>
+
+      <div className="grid gap-1.5">
+        <Label htmlFor="edit-req-assignedUserId">Assigné à</Label>
+        <Select
+          id="edit-req-assignedUserId"
+          aria-describedby="edit-req-assignedUserId-hint"
+          {...register("assignedUserId")}
+        >
+          <option value={NONE}>Personne (tous les commerciaux sont notifiés)</option>
+          {assignableUsers.data?.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.fullName}
+            </option>
+          ))}
+        </Select>
+        <p id="edit-req-assignedUserId-hint" className="text-xs text-muted-foreground">
+          {"La personne assignée reçoit les notifications de cette demande à la place de l'ensemble des commerciaux."}
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

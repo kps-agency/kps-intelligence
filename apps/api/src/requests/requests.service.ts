@@ -4,6 +4,7 @@ import { EventEntityType, EventType } from "@kps/types";
 import type {
   AiAnalysisResponse,
   AiAnalysisStatus,
+  AssignableUserResponse,
   Database,
   PaginatedResponse,
   PriorityLevel,
@@ -35,11 +36,14 @@ type RequestWithLinks = RequestRow & {
   clients: { company_name: string } | null;
   contacts: { first_name: string; last_name: string } | null;
   services: { slug: string; name: string } | null;
+  assigned_user: { first_name: string; last_name: string } | null;
 };
 type AiAnalysisRow = Database["public"]["Tables"]["ai_analyses"]["Row"];
 
+// Un seul littéral : le typage des sélections Supabase ne suit pas une
+// chaîne concaténée.
 const REQUEST_SELECT =
-  "*, clients(company_name), contacts(first_name, last_name), services(slug, name)";
+  "*, clients(company_name), contacts(first_name, last_name), services(slug, name), assigned_user:users!requests_assigned_user_id_fkey(first_name, last_name)";
 
 const logger = new Logger("RequestsService");
 
@@ -76,6 +80,10 @@ function toResponse(row: RequestWithLinks): RequestResponse {
     detectedServiceName: row.services?.name ?? null,
     detectedSubservice: row.detected_subservice,
     aiConfidence: row.ai_confidence,
+    assignedUserId: row.assigned_user_id,
+    assignedUserName: row.assigned_user
+      ? `${row.assigned_user.first_name} ${row.assigned_user.last_name}`
+      : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -149,6 +157,7 @@ export class RequestsService {
 
   async create(dto: CreateRequestDto, actor: EventActor): Promise<RequestResponse> {
     await this.assertClientContactMatch(dto.clientId, dto.contactId);
+    if (dto.assignedUserId) await this.assertAssignable(dto.assignedUserId);
 
     const { data, error } = await this.supabase
       .getClient()
@@ -163,12 +172,27 @@ export class RequestsService {
         urgency: dto.urgency,
         client_id: dto.clientId,
         contact_id: dto.contactId,
+        assigned_user_id: dto.assignedUserId,
       })
       .select("id")
       .single();
 
     if (error) throw toDbException(error);
     await this.emitReceived(data.id, actor, { source: "MANUAL" });
+    if (dto.assignedUserId) {
+      const created = await this.findById(data.id);
+      await this.eventBus.emit({
+        type: EventType.REQUEST_ASSIGNED,
+        entityType: EventEntityType.REQUEST,
+        entityId: data.id,
+        requestId: data.id,
+        actor,
+        payload: {
+          assignedUserId: dto.assignedUserId,
+          assignedUserName: created.assignedUserName,
+        },
+      });
+    }
 
     // Analyse IA synchrone (Phase 8, section 19) : pas de file d'attente
     // asynchrone en place pour l'instant, et une demande MANUAL doit être
@@ -285,22 +309,26 @@ export class RequestsService {
     if (nextClientId !== undefined || dto.contactId !== undefined) {
       fields.contact_id = nextContactId ?? null;
     }
+    if (dto.assignedUserId !== undefined) {
+      if (dto.assignedUserId !== null) await this.assertAssignable(dto.assignedUserId);
+      fields.assigned_user_id = dto.assignedUserId;
+    }
 
     if (Object.keys(fields).length === 0) {
       throw new BadRequestException("Aucun champ à modifier.");
     }
 
-    let previousStatus: string | null = null;
-    if (fields.status !== undefined) {
+    let previous: { status: string; assigned_user_id: string | null } | null = null;
+    if (fields.status !== undefined || fields.assigned_user_id !== undefined) {
       const { data: current, error: currentError } = await this.supabase
         .getClient()
         .from("requests")
-        .select("status")
+        .select("status, assigned_user_id")
         .eq("id", id)
         .maybeSingle();
       if (currentError) throw toDbException(currentError);
       if (!current) throw new NotFoundException("Demande introuvable.");
-      previousStatus = current.status;
+      previous = current;
     }
 
     const { data, error } = await this.supabase
@@ -314,17 +342,79 @@ export class RequestsService {
     if (error) throw toDbException(error);
     if (!data) throw new NotFoundException("Demande introuvable.");
 
-    if (fields.status !== undefined && previousStatus !== fields.status) {
+    const updated = await this.findById(id);
+
+    if (fields.status !== undefined && previous?.status !== fields.status) {
       await this.eventBus.emit({
         type: STATUS_EVENTS[fields.status] ?? EventType.REQUEST_STATUS_CHANGED,
         entityType: EventEntityType.REQUEST,
         entityId: id,
         requestId: id,
         actor,
-        payload: { from: previousStatus, to: fields.status },
+        payload: { from: previous?.status ?? null, to: fields.status },
       });
     }
-    return this.findById(id);
+    if (
+      fields.assigned_user_id !== undefined &&
+      fields.assigned_user_id !== null &&
+      previous?.assigned_user_id !== fields.assigned_user_id
+    ) {
+      await this.eventBus.emit({
+        type: EventType.REQUEST_ASSIGNED,
+        entityType: EventEntityType.REQUEST,
+        entityId: id,
+        requestId: id,
+        actor,
+        payload: {
+          assignedUserId: fields.assigned_user_id,
+          assignedUserName: updated.assignedUserName,
+        },
+      });
+    }
+    return updated;
+  }
+
+  // Utilisateurs actifs dont le rôle permet de gérer des demandes : les
+  // seuls à qui une demande peut être confiée.
+  async listAssignableUsers(): Promise<AssignableUserResponse[]> {
+    const client = this.supabase.getClient();
+    const roleIds = await this.rolesWithPermission("requests.manage");
+    if (roleIds.length === 0) return [];
+
+    const { data, error } = await client
+      .from("users")
+      .select("id, first_name, last_name, roles(key)")
+      .in("role_id", roleIds)
+      .eq("status", "ACTIVE")
+      .order("first_name", { ascending: true });
+    if (error) throw toDbException(error);
+
+    return (data as { id: string; first_name: string; last_name: string; roles: { key: string } | null }[]).map(
+      (u) => ({
+        id: u.id,
+        fullName: `${u.first_name} ${u.last_name}`,
+        roleKey: u.roles?.key ?? "",
+      }),
+    );
+  }
+
+  private async assertAssignable(userId: string): Promise<void> {
+    const assignable = await this.listAssignableUsers();
+    if (!assignable.some((u) => u.id === userId)) {
+      throw new BadRequestException(
+        "Cet utilisateur ne peut pas être assigné à une demande (inactif ou sans droit de gestion).",
+      );
+    }
+  }
+
+  private async rolesWithPermission(permission: string): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("role_permissions")
+      .select("role_id, permissions!inner(key)")
+      .eq("permissions.key", permission);
+    if (error) throw toDbException(error);
+    return data.map((row) => row.role_id);
   }
 
   /**

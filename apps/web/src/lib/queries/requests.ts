@@ -1,5 +1,6 @@
 import type {
   AiAnalysisResponse,
+  AssignableUserResponse,
   CreateRequestRequest,
   PaginatedResponse,
   RequestResponse,
@@ -69,6 +70,14 @@ export function useUpdateRequest(id: string) {
       queryClient.setQueryData(["requests", "detail", id], updated);
       void queryClient.invalidateQueries({ queryKey: ["requests"] });
     },
+  });
+}
+
+export function useAssignableUsers() {
+  return useQuery({
+    queryKey: ["requests", "assignable-users"] as const,
+    queryFn: () => apiFetch<AssignableUserResponse[]>("/requests/assignable-users"),
+    staleTime: 60_000,
   });
 }
 

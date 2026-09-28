@@ -102,7 +102,7 @@ export const NAV_GROUPS: NavGroup[] = [
         requiredPermission: "forms.read",
       },
       { label: "Workflows", href: "/workflows", icon: Workflow, available: false, phase: 15 },
-      { label: "Notifications", href: "/notifications", icon: Bell, available: false, phase: 14 },
+      { label: "Notifications", href: "/notifications", icon: Bell, available: true, phase: 14 },
       { label: "Conversations", href: "/conversations", icon: MessagesSquare, available: false, phase: 12 },
     ],
   },

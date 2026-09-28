@@ -132,6 +132,11 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (isAutomated(parsed.headers, fromAddress)) {
+      logger.log({ uid, messageId }, "Email automatique (rebond, absence...), ignoré");
+      return;
+    }
+
     if (await this.conversationsService.isKnownMessage(messageId)) {
       logger.log({ messageId }, "Email déjà traité (idempotence), ignoré");
       return;
@@ -250,4 +255,28 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
 
 function isNonEmpty(value: string | undefined | null): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+// Rebonds, réponses automatiques d'absence, envois de masse : jamais des
+// demandes. Sans ce filtre, un email de notification interne qui rebondit
+// reviendrait dans la boîte ingérée et créerait une fausse demande.
+// Critères : RFC 3834 (Auto-Submitted), en-têtes de rebond, expéditeurs
+// système et rapports de remise (multipart/report).
+export function isAutomated(headers: Map<string, unknown>, fromAddress: string): boolean {
+  const header = (name: string): string => {
+    const value = headers.get(name);
+    if (typeof value === "string") return value.toLowerCase();
+    if (value && typeof value === "object" && "value" in value) {
+      return String((value as { value: unknown }).value).toLowerCase();
+    }
+    return "";
+  };
+
+  const autoSubmitted = header("auto-submitted");
+  if (autoSubmitted && autoSubmitted !== "no") return true;
+  if (["bulk", "junk", "list", "auto_reply"].includes(header("precedence"))) return true;
+  if (headers.has("x-failed-recipients") || headers.has("x-autoreply")) return true;
+  if (header("content-type").startsWith("multipart/report")) return true;
+  const localPart = fromAddress.split("@")[0] ?? "";
+  return ["mailer-daemon", "postmaster", "noreply", "no-reply"].includes(localPart);
 }

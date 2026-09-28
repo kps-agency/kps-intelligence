@@ -32,6 +32,14 @@ export class EmailService {
     return this.from;
   }
 
+  // Notification interne à un membre de l'équipe (texte brut : lisible
+  // partout, sans mise en forme marketing).
+  async sendInternalEmail(to: string, subject: string, text: string): Promise<string> {
+    const info = await this.transporter.sendMail({ from: this.from, to, subject, text });
+    logger.log({ to, messageId: info.messageId }, "Email de notification interne envoyé");
+    return info.messageId;
+  }
+
   // `inReplyTo` : Message-ID du message du prospect. L'email part alors
   // dans le même fil chez lui, et sa réponse référencera les deux
   // messages — c'est ce qui permet de la rattacher à la demande existante

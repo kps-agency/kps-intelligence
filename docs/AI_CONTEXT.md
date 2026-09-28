@@ -1004,10 +1004,81 @@ horizontal). Deux vrais problèmes trouvés ainsi et corrigés :
   casse le serveur de dev (chunks en 404) : **ne jamais lancer
   `pnpm build` pendant `pnpm dev`**, ou redémarrer `pnpm dev` ensuite.
 
-Prochaine étape : **Phase 14 — Notifications**. Checkpoint léger :
-vérifier avec l'utilisateur les templates/tons attendus (sinon templates
-par défaut). Les tests réels WhatsApp (Phase 12) restent à faire dès que
-le compte Meta existe.
+## Phase 14 — Notifications
+
+Checkpoint avec l'utilisateur, recommandations retenues sur les quatre
+points : destinataire « Commercial » = l'**assigné** de la demande,
+sinon **tous les commerciaux actifs** (admins en dernier recours si
+personne n'a le rôle visé) ; **in-app partout + email ciblé** sur les
+étapes qui appellent une action ; templates **sobres et professionnels**
+en base ; **Redis en conteneur Docker** (`docker-compose.yml` à la
+racine, préfigure celui de la Phase 25).
+
+Détail complet (matrice, publics, préférences, idempotence, gestion
+d'échec) : **`docs/NOTIFICATIONS.md`**. En bref :
+- `NotificationsDispatcher` s'abonne à l'Event Bus (Phase 13) — aucune
+  notification n'est déclenchée par un appel direct depuis un module
+  métier. Règles dans `notification-rules.ts`, templates en base
+  (migration `950001`), une ligne `notifications` par destinataire × canal.
+- In-app écrit immédiatement ; email via **BullMQ** (`bullmq` + `ioredis`,
+  ce dernier est une dépendance optionnelle de BullMQ 6 qu'il faut
+  installer explicitement), retry ×5 avec backoff, `sent_at`/`error`
+  tracés, emails en attente relancés au démarrage.
+- `TEAM_NOTIFIED` dans la timeline (section 43 « 🔔 Commercial notifié »),
+  `REQUEST_ASSIGNED` quand une demande est confiée à quelqu'un
+  (`assignedUserId` sur création et modification, limité aux utilisateurs
+  actifs ayant `requests.manage`).
+- WhatsApp **non implémenté** pour les notifications internes : un
+  message à l'initiative de l'entreprise exige un template approuvé par
+  Meta ; refusé explicitement par l'API de préférences.
+
+Frontend : cloche avec compteur dans l'en-tête (rafraîchie toutes les
+30 s, n'affirme « aucune non lue » qu'une fois le compteur chargé), page
+`/notifications` (non lues / lues / toutes, recherche, filtre de priorité,
+marquer lu, tout marquer lu, lien vers la demande qui la marque lue,
+pagination), dialogue « Préférences » (mise à jour optimiste, in-app
+critique verrouillé), champ « Assigné à » sur la fiche demande, libellés
+timeline pour l'assignation et les personnes notifiées.
+
+Bugs réels trouvés et corrigés pendant la phase :
+- **Idempotence incomplète** (trouvé par le test e2e de rejeu) : la clé
+  unique événement × destinataire × canal ne suffisait pas. Une demande
+  réassignée de A à B, puis un `REQUEST_RECEIVED` rejoué, notifiait B pour
+  une étape déjà traitée (les destinataires étaient recalculés d'après
+  l'état *actuel*). Un événement déjà traité n'est plus jamais re-ciblé.
+- **Rebonds ingérés comme demandes** : les emails de notification
+  partent vers de vraies adresses ; un rebond ou une réponse d'absence
+  revenant dans la boîte ingérée aurait créé une fausse demande. Filtre
+  `isAutomated` (RFC 3834 `Auto-Submitted`, `Precedence`,
+  `X-Failed-Recipients`, `multipart/report`, `mailer-daemon`…) + tests.
+- **Erreurs Redis non écoutées** : sans écouteur `error` sur la file et
+  le worker BullMQ, une coupure Redis est une exception non gérée qui
+  fait tomber l'API (c'est ce qui a fait « pendre » le premier run e2e).
+- UI : la cloche affirmait « aucune non lue » pendant le chargement ; les
+  cases de préférences ne changeaient d'état qu'après la réponse serveur.
+
+Tests : **15 tests e2e réels** (`notifications.e2e-spec.ts`) avec de vrais
+comptes créés pour le test (alias `+` de la boîte de test : chaque email
+part réellement et est retrouvé par IMAP, sans écrire à un tiers) —
+ciblage (assigné seul, tous les commerciaux si non assignée, jamais
+l'auteur, jamais d'autres rôles), réassignation, envoi réel par BullMQ,
+timeline, rejeu idempotent, assignation refusée à un VIEWER, préférences
+réellement appliquées et verrouillage critique, centre (filtres,
+recherche, compteur, marquer lu, isolation entre utilisateurs, 401),
+responsable technique et repli admin. Unitaires : rendu de templates,
+filtre d'emails automatiques. Régression complète : 10 suites, 168/168.
+Navigateur réel (build de production) : 23 contrôles, axe sans violation
+sur la fiche, `/notifications` et le dialogue, mobile sans scroll.
+
+Note d'environnement : les serveurs `pnpm dev` de l'utilisateur sont
+tombés pendant la phase (le `.next` écrasé en Phase 13, puis l'API dev
+arrêtée) — **redémarrer `pnpm dev`**, et `docker compose up -d redis`
+avant, désormais requis par l'API.
+
+Prochaine étape : **Phase 15 — Workflow Engine** (TRIGGER → CONDITION →
+ACTION, relances configurables de la section 39). Pas de checkpoint
+externe. Les tests réels WhatsApp (Phase 12) restent à faire dès que le
+compte Meta existe.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
@@ -1020,8 +1091,9 @@ le compte Meta existe.
 
 ```bash
 pnpm install
+docker compose up -d redis   # Redis (file BullMQ), requis par l'API depuis la Phase 14
 pnpm db:migrate    # applique les migrations SQL en attente (supabase/migrations/*.sql)
-pnpm dev            # web + api en parallèle
+pnpm dev            # web + api en parallèle (ne pas lancer `pnpm build` en même temps)
 pnpm lint
 pnpm typecheck
 pnpm test

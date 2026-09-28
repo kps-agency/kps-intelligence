@@ -14,6 +14,7 @@ import { Menu } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { CurrentUserProvider } from "@/components/current-user-context";
+import { NotificationBell } from "@/components/notification-bell";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { UserMenu } from "@/components/user-menu";
 
@@ -77,7 +78,8 @@ export function AppShell({
                 <Menu aria-hidden="true" />
               </Button>
             </SheetTrigger>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <NotificationBell />
               <UserMenu />
             </div>
           </header>

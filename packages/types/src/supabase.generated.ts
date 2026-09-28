@@ -893,12 +893,17 @@ export type Database = {
           body: string
           channel: Database["public"]["Enums"]["notification_channel"]
           created_at: string
+          error: string | null
+          event_id: string | null
           event_type: Database["public"]["Enums"]["event_type"]
           id: string
           is_read: boolean
+          link: string | null
+          priority: Database["public"]["Enums"]["priority_level"]
           read_at: string | null
           related_entity_id: string | null
           related_entity_type: string | null
+          sent_at: string | null
           title: string
           user_id: string
         }
@@ -906,12 +911,17 @@ export type Database = {
           body: string
           channel: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
+          error?: string | null
+          event_id?: string | null
           event_type: Database["public"]["Enums"]["event_type"]
           id?: string
           is_read?: boolean
+          link?: string | null
+          priority?: Database["public"]["Enums"]["priority_level"]
           read_at?: string | null
           related_entity_id?: string | null
           related_entity_type?: string | null
+          sent_at?: string | null
           title: string
           user_id: string
         }
@@ -919,16 +929,28 @@ export type Database = {
           body?: string
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
+          error?: string | null
+          event_id?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
           id?: string
           is_read?: boolean
+          link?: string | null
+          priority?: Database["public"]["Enums"]["priority_level"]
           read_at?: string | null
           related_entity_id?: string | null
           related_entity_type?: string | null
+          sent_at?: string | null
           title?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
@@ -1852,6 +1874,8 @@ export type Database = {
         | "QUALIFICATION_LINK_EXTENDED"
         | "QUALIFICATION_LINK_EXPIRED"
         | "CONVERSATION_MESSAGE_RECEIVED"
+        | "REQUEST_ASSIGNED"
+        | "TEAM_NOTIFIED"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2101,6 +2125,8 @@ export const Constants = {
         "QUALIFICATION_LINK_EXTENDED",
         "QUALIFICATION_LINK_EXPIRED",
         "CONVERSATION_MESSAGE_RECEIVED",
+        "REQUEST_ASSIGNED",
+        "TEAM_NOTIFIED",
       ],
       form_field_type: [
         "TEXT",

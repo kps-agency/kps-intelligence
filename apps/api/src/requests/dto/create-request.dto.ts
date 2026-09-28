@@ -54,4 +54,8 @@ export class CreateRequestDto {
   @IsOptional()
   @IsUUID("4", { message: "contactId doit être un UUID." })
   contactId?: string;
+
+  @IsOptional()
+  @IsUUID("4", { message: "assignedUserId doit être un UUID." })
+  assignedUserId?: string;
 }

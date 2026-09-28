@@ -1,0 +1,23 @@
+# Services d'infrastructure locale. Supabase reste distant (section 74).
+# Les services web/api s'y ajouteront en Phase 25.
+#
+#   docker compose up -d redis
+services:
+  redis:
+    image: redis:7-alpine
+    # AOF : les jobs en attente (envois de notifications...) survivent à un
+    # redémarrage du conteneur.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:

@@ -6,6 +6,7 @@ import type {
   EventType,
   FormFieldType,
   FormStatus,
+  NotificationChannel,
   PriorityLevel,
   QualificationSessionStatus,
   RequestIntent,
@@ -184,8 +185,20 @@ export interface RequestResponse {
   detectedServiceName: string | null;
   detectedSubservice: string | null;
   aiConfidence: number | null;
+  // Commercial (ou autre utilisateur) en charge : destinataire prioritaire
+  // des notifications de la demande (Phase 14).
+  assignedUserId: string | null;
+  assignedUserName: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// Élément de GET /requests/assignable-users : utilisateurs actifs pouvant
+// gérer des demandes.
+export interface AssignableUserResponse {
+  id: string;
+  fullName: string;
+  roleKey: string;
 }
 
 // Corps de POST /requests (source MANUAL, fixée par le serveur).
@@ -198,6 +211,7 @@ export interface CreateRequestRequest {
   urgency?: PriorityLevel;
   clientId?: string;
   contactId?: string;
+  assignedUserId?: string;
 }
 
 // Corps de PATCH /requests/:id. `null` sur clientId délie le client (et
@@ -212,6 +226,7 @@ export interface UpdateRequestRequest {
   urgency?: PriorityLevel;
   clientId?: string | null;
   contactId?: string | null;
+  assignedUserId?: string | null;
 }
 
 // ---- Claude AI (analyse de demande, section 19) ----
@@ -479,6 +494,43 @@ export interface TimelineEventResponse {
   actorName: string | null;
   payload: Record<string, unknown>;
   createdAt: string;
+}
+
+// ---- Notifications (sections 41-42) ----
+
+export interface NotificationResponse {
+  id: string;
+  eventType: EventType;
+  title: string;
+  body: string;
+  priority: PriorityLevel;
+  // Chemin relatif dans l'application (ex. /requests/<id>), null si aucun.
+  link: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface UnreadNotificationsCountResponse {
+  count: number;
+}
+
+// Une ligne de GET /notifications/preferences : un type d'événement pour
+// lequel l'utilisateur peut être notifié, et l'état de chaque canal.
+// `locked` : notification critique, le canal ne peut pas être coupé.
+export interface NotificationPreferenceResponse {
+  eventType: EventType;
+  label: string;
+  channels: Record<
+    Extract<NotificationChannel, "IN_APP" | "EMAIL">,
+    { enabled: boolean; locked: boolean }
+  >;
+}
+
+export interface UpdateNotificationPreferenceRequest {
+  eventType: EventType;
+  channel: NotificationChannel;
+  enabled: boolean;
 }
 
 // Corps de toute réponse d'erreur (AllExceptionsFilter). `message` est un

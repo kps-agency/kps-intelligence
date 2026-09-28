@@ -34,6 +34,13 @@ export class RequestsController {
     return this.requestsService.list(query);
   }
 
+  // Déclarée avant ":id" : Nest résout les routes dans l'ordre.
+  @Get("assignable-users")
+  @RequirePermissions("requests.manage")
+  assignableUsers() {
+    return this.requestsService.listAssignableUsers();
+  }
+
   @Get(":id")
   @RequirePermissions("requests.read")
   findOne(@Param("id", ParseUUIDPipe) id: string) {

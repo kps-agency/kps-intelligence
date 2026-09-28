@@ -13,6 +13,7 @@ import { EmailModule } from "./email/email.module";
 import { EventsModule } from "./events/events.module";
 import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { QualificationDispatchModule } from "./qualification-dispatch/qualification-dispatch.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
 import { RequestsModule } from "./requests/requests.module";
@@ -76,6 +77,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     EmailModule,
     WhatsappModule,
     QualificationDispatchModule,
+    NotificationsModule,
     AuthModule,
   ],
   providers: [

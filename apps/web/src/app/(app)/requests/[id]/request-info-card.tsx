@@ -95,6 +95,7 @@ export function RequestInfoCard({
                 )}
               </div>
               <Field label="Contact" value={request.contactFullName} />
+              <Field label="Assigné à" value={request.assignedUserName} />
               <Field label="Pays" value={request.country} />
               <Field label="Langue" value={request.language} />
               <Field label="Source" value={request.source} />
