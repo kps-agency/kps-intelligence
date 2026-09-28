@@ -205,9 +205,11 @@ export type Database = {
           is_primary: boolean
           last_name: string
           phone: string | null
+          phone_digits: string | null
           position: string | null
           updated_at: string
           whatsapp: string | null
+          whatsapp_digits: string | null
         }
         Insert: {
           client_id: string
@@ -218,9 +220,11 @@ export type Database = {
           is_primary?: boolean
           last_name: string
           phone?: string | null
+          phone_digits?: string | null
           position?: string | null
           updated_at?: string
           whatsapp?: string | null
+          whatsapp_digits?: string | null
         }
         Update: {
           client_id?: string
@@ -231,9 +235,11 @@ export type Database = {
           is_primary?: boolean
           last_name?: string
           phone?: string | null
+          phone_digits?: string | null
           position?: string | null
           updated_at?: string
           whatsapp?: string | null
+          whatsapp_digits?: string | null
         }
         Relationships: [
           {
@@ -1280,6 +1286,7 @@ export type Database = {
           subject: string
           updated_at: string
           urgency: Database["public"]["Enums"]["priority_level"] | null
+          whatsapp_message_id: string | null
         }
         Insert: {
           ai_confidence?: number | null
@@ -1304,6 +1311,7 @@ export type Database = {
           subject: string
           updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
+          whatsapp_message_id?: string | null
         }
         Update: {
           ai_confidence?: number | null
@@ -1328,6 +1336,7 @@ export type Database = {
           subject?: string
           updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
+          whatsapp_message_id?: string | null
         }
         Relationships: [
           {

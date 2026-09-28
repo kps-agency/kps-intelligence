@@ -7,7 +7,9 @@ import { AppModule } from "./app.module";
 import { configureApp } from "./app.setup";
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // rawBody : la signature des webhooks WhatsApp se vérifie sur les octets
+  // exacts reçus, pas sur le JSON re-sérialisé.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService);

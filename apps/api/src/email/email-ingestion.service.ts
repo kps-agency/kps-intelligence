@@ -213,6 +213,9 @@ export class EmailIngestionService implements OnModuleInit, OnModuleDestroy {
         serviceName: service.name,
         qualificationUrl: session.qualificationUrl,
       });
+      if (session.status === "CREATED") {
+        await this.qualificationSessionsService.markSent(session.id);
+      }
     } catch (err) {
       logger.error(
         { requestId: request.id, err: err instanceof Error ? err.message : String(err) },

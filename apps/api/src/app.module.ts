@@ -18,6 +18,7 @@ import { RolesModule } from "./roles/roles.module";
 import { ServicesModule } from "./services/services.module";
 import { SupabaseModule } from "./supabase/supabase.module";
 import { UsersModule } from "./users/users.module";
+import { WhatsappModule } from "./whatsapp/whatsapp.module";
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { UsersModule } from "./users/users.module";
     FormsModule,
     QualificationSessionsModule,
     EmailModule,
+    WhatsappModule,
     AuthModule,
   ],
   providers: [

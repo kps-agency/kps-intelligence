@@ -168,9 +168,10 @@ export class RequestsService {
   }
 
   // Création depuis un canal entrant (email Phase 11, WhatsApp Phase 12...)
-  // — jamais depuis un DTO authentifié. Idempotent sur emailMessageId : un
-  // même message reçu deux fois (webhook rejoué, IMAP re-scanné après un
-  // redémarrage) ne doit jamais créer deux demandes (section 17).
+  // — jamais depuis un DTO authentifié. Idempotent sur l'identifiant de
+  // message externe : un même message reçu deux fois (webhook rejoué, IMAP
+  // re-scanné après un redémarrage) ne doit jamais créer deux demandes
+  // (section 17).
   async createFromInbound(params: {
     source: RequestSource;
     channel: string | null;
@@ -182,14 +183,21 @@ export class RequestsService {
     contactId: string | null;
     emailMessageId?: string | null;
     emailThreadId?: string | null;
+    whatsappMessageId?: string | null;
   }): Promise<{ request: RequestResponse; alreadyExisted: boolean }> {
     const client = this.supabase.getClient();
 
-    if (params.emailMessageId) {
+    const idempotencyKey = params.emailMessageId
+      ? { column: "email_message_id" as const, value: params.emailMessageId }
+      : params.whatsappMessageId
+        ? { column: "whatsapp_message_id" as const, value: params.whatsappMessageId }
+        : null;
+
+    if (idempotencyKey) {
       const { data: existing, error: existingError } = await client
         .from("requests")
         .select("id")
-        .eq("email_message_id", params.emailMessageId)
+        .eq(idempotencyKey.column, idempotencyKey.value)
         .maybeSingle();
       if (existingError) throw toDbException(existingError);
       if (existing) {
@@ -210,6 +218,7 @@ export class RequestsService {
         contact_id: params.contactId,
         email_message_id: params.emailMessageId ?? null,
         email_thread_id: params.emailThreadId ?? null,
+        whatsapp_message_id: params.whatsappMessageId ?? null,
       })
       .select("id")
       .single();

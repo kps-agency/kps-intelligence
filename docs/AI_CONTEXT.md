@@ -827,15 +827,92 @@ vrai cycle de polling IMAP en tâche de fond — assumé plutôt que contourné,
 conforme au principe zéro-mock : l'application est réellement vivante
 pendant les tests, pas seulement les parties qu'ils ciblent.
 
-Prochaine étape : **Phase 12 — WhatsApp (ingestion + envoi)**. Checkpoint
-externe #4 à franchir avant de commencer : créer l'app Meta/WhatsApp
-Business Cloud API avec l'utilisateur.
+## Phase 12 — WhatsApp (ingestion + envoi) — ⚠️ implémentée, NON vérifiée en réel
+
+**Écart assumé par rapport aux phases précédentes, à la demande explicite
+de l'utilisateur** : pas encore d'app Meta, donc implémentation écrite
+contre le contrat réel de l'API WhatsApp Business Cloud (Graph API), mais
+**sans aucun test d'intégration réel** — les tests réels sont reportés à
+l'obtention des credentials. Rien n'est simulé dans le code (pas de mock,
+pas de faux succès), mais le DoD de la phase (« un vrai message WhatsApp
+crée une demande, déclenche l'analyse IA et l'envoi du lien ») **n'est pas
+encore démontré**. À faire dès que le compte Meta existe :
+1. Renseigner `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+   `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` dans `.env`.
+2. Exposer l'API en HTTPS public (tunnel type ngrok en dev) et déclarer
+   `<url>/api/v1/webhooks/whatsapp` côté Meta, champ « messages ».
+3. Écrire `whatsapp.e2e-spec.ts` (envoi réel vers le numéro de test Meta,
+   webhook réel reçu, idempotence sur un rejeu). Attention : l'app de
+   test Nest doit être créée avec `createNestApplication({ rawBody: true })`
+   comme dans `main.ts`, sinon toute signature sera rejetée.
+
+Ce qui a quand même été vérifié : typecheck/lint/build, 6 tests unitaires
+sur la vérification de signature HMAC, et un smoke test de l'API compilée
+réellement démarrée — sans configuration WhatsApp elle démarre et refuse
+tout (403 sur la vérification, 503 sur les webhooks) ; avec un secret
+temporaire, la poignée de main renvoie le challenge uniquement pour le bon
+token et la signature calculée sur le corps brut est acceptée (200) alors
+qu'une signature fausse ou absente est rejetée (401).
+
+Backend (`apps/api/src/whatsapp/`) :
+- `GET/POST /api/v1/webhooks/whatsapp` (`@Public`, sans rate limiting,
+  exclu de Swagger) : poignée de main d'abonnement Meta (verify token,
+  comparaison à temps constant) puis vérification `X-Hub-Signature-256`
+  (HMAC-SHA256 de l'App Secret sur le **corps brut** — `rawBody: true`
+  activé dans `main.ts`). Fail closed : secret absent → tout refusé.
+- Réponse 200 immédiate, traitement en arrière-plan : Meta rejoue tout
+  webhook non acquitté rapidement alors que l'analyse IA prend plusieurs
+  secondes ; les rejeux sont absorbés par l'idempotence.
+- Idempotence à deux niveaux : `conversation_messages.external_message_id`
+  (index unique existant depuis la Phase 2) pour chaque message, et
+  `requests.whatsapp_message_id` (nouvel index unique partiel, migration
+  `800001`) pour la création de demande — `createFromInbound` accepte
+  désormais l'un ou l'autre identifiant.
+- Conversations (section 18 — « conserver les conversations ») : un
+  message d'un numéro qui a déjà une conversation dont la demande n'est
+  pas close (WON/LOST/CONVERTED_TO_MISSION/CLOSED/UNQUALIFIED) est ajouté
+  à cette conversation au lieu d'ouvrir une nouvelle demande. Les messages
+  sont traités **séquentiellement par numéro** (file en mémoire) : sinon
+  « Bonjour » suivi une seconde plus tard de la vraie demande créerait
+  deux demandes, le second message arrivant pendant l'analyse IA du
+  premier. File en mémoire = une seule instance d'API ; à déplacer sur
+  BullMQ (clé de groupe = numéro) si l'API est un jour répliquée.
+- Rattachement automatique au contact : colonnes générées
+  `contacts.whatsapp_digits`/`phone_digits` (chiffres seuls, préfixe `00`
+  retiré) comparées au `wa_id` de Meta. Limite : un numéro saisi au
+  format national (« 079... ») n'est pas rapproché.
+- Envoi du lien de qualification (section 36, texte exact) quand un
+  service est détecté avec confiance suffisante, exactement comme l'email.
+  Message texte libre : autorisé par Meta seulement dans les 24 h suivant
+  le dernier message du prospect (c'est le cas ici). **Les relances de la
+  Phase 15 hors de cette fenêtre exigeront des templates approuvés par
+  Meta.** Le message sortant est historisé dans la conversation **sans le
+  lien** (le token est un secret porteur, stocké haché ailleurs).
+
+Limites connues, volontairement hors périmètre :
+- Seuls les messages texte sont traités ; image/vocal/document sont
+  ignorés (logués).
+- Un premier message sans contenu exploitable (« Bonjour ») crée une
+  demande peu informative ; les messages suivants sont ajoutés à la
+  conversation mais ne relancent pas l'analyse IA. À traiter avec le
+  Workflow Engine (Phase 15).
+- Les accusés de réception/lecture Meta (`statuses`) sont ignorés.
+
+Correctif Phase 11 découvert en passant : l'envoi automatique de l'email
+de qualification créait la session sans jamais la marquer envoyée — l'UI
+admin affichait « créé, non envoyé » alors que l'email était bien parti.
+Les deux canaux appellent désormais `markSent` après un envoi réussi.
+
+Prochaine étape : **Phase 13 — Events & Event Bus**. Pas de checkpoint
+externe. Les tests réels WhatsApp (Phase 12) restent à faire dès que le
+compte Meta existe.
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
 2. ✅ Clé API Anthropic — fait (Phase 8).
 3. ✅ Provider email — fait (Phase 11, compte Gmail).
-4. ⏳ Compte Meta WhatsApp Business Cloud API — requis avant Phase 12.
+4. ⏳ Compte Meta WhatsApp Business Cloud API — code prêt (Phase 12),
+   credentials et tests réels en attente.
 
 ## Commandes utiles
 
