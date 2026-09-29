@@ -230,6 +230,23 @@ push.
 - Chaîne e2e complète email → … → mission ; tests frontend (section 70) ;
   données de démo réalistes (seed).
 
+### Déploiement retenu (décision du 29/09/2026)
+
+- **Web (Next.js) sur Vercel** : `vercel.json` à la racine, un seul
+  service `web` (build Turbo depuis la racine du monorepo pour construire
+  d'abord `@kps/types` / `@kps/shared`). Variables Vercel :
+  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+  `NEXT_PUBLIC_API_URL` (URL publique de l'API).
+- **API (NestJS) sur un serveur qui tourne en continu** (VPS Docker,
+  Railway, Fly.io, Render...) — **pas sur Vercel** : elle a besoin d'un
+  processus permanent (polling IMAP, workers BullMQ, relances différées,
+  traitements de l'Event Bus après la réponse HTTP, analyse Claude
+  synchrone longue). Côté API : `APP_URL` = domaine Vercel (CORS),
+  `PUBLIC_QUALIFICATION_URL` = `https://<domaine Vercel>/qualification`,
+  Redis accessible.
+- Option possible plus tard : réécrire `/api/*` du domaine Vercel vers
+  l'URL de l'API (un seul domaine, plus de CORS) une fois l'hôte connu.
+
 ### Phase 25 — Sécurité, Docker, CI/CD, production (sections 60, 73-76)
 - Audit sécurité ; `Dockerfile`s + `docker-compose.yml` complet (web, api,
   redis ; Supabase distant) ; pipeline CI (install → lint → typecheck →
