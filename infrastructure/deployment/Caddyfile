@@ -1,0 +1,6 @@
+# HTTPS automatique (Let's Encrypt) pour le domaine de l'API, qui doit
+# pointer (enregistrement DNS A/AAAA) vers le VPS.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy api:4000
+}
