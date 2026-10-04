@@ -1,12 +1,17 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { EventEntityType } from "@kps/types";
-import type { Database, EventActorType, EventType, TimelineEventResponse } from "@kps/types";
+import type {
+  Database,
+  EventActorType,
+  EventEntityType,
+  EventType,
+  TimelineEventResponse,
+} from "@kps/types";
 import { toDbException } from "../common/db-error";
 import { SupabaseService } from "../supabase/supabase.service";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
 
-// Timeline d'une demande ou d'une opportunité (section 43) : reconstruite
+// Timeline d'une demande, d'une opportunité ou d'un devis (section 43) : reconstruite
 // uniquement à partir de la table `events` — aucune autre source n'est
 // consultée, ce qui garantit que tout ce qui s'affiche ici a réellement
 // été journalisé.
@@ -34,15 +39,15 @@ export class TimelineService {
     return this.toResponses(events);
   }
 
-  // Événements portés par l'opportunité elle-même (création, étapes,
-  // notifications) ; ceux de sa demande d'origine restent sur la demande.
-  async forOpportunity(opportunityId: string): Promise<TimelineEventResponse[]> {
+  // Événements portés par l'objet lui-même (opportunité, devis...) ; ceux
+  // de sa demande d'origine restent sur la demande.
+  async forEntity(entityType: EventEntityType, entityId: string): Promise<TimelineEventResponse[]> {
     const { data: events, error } = await this.supabase
       .getClient()
       .from("events")
       .select("*")
-      .eq("entity_type", EventEntityType.OPPORTUNITY)
-      .eq("entity_id", opportunityId)
+      .eq("entity_type", entityType)
+      .eq("entity_id", entityId)
       .order("created_at", { ascending: true });
     if (error) throw toDbException(error);
     return this.toResponses(events);

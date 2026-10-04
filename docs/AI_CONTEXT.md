@@ -1283,8 +1283,73 @@ et annulé), création, fiche (étape, édition, timeline), fiches demande et
 client, mobile 390 px (pas de débordement, changement d'étape), observateur
 en lecture seule.
 
-Prochaine étape : terminer le gate ci-dessus, puis **Phase 18 — Devis**
-(checkpoint utilisateur : mentions légales, TVA, numérotation, logo).
+
+## Phase 18 — Devis (section 51)
+
+> ⚠️ **Sans la proposition par l'IA** (décision « continuer sans Claude »,
+> compte Anthropic sans crédit) : la pré-rédaction d'un devis par Claude
+> depuis l'opportunité et les réponses de qualification reste à faire
+> (nouveau prompt versionné `quote-proposal@1`, bouton « Proposer un
+> contenu » dans l'éditeur, brouillon uniquement). Tout le reste est livré
+> et vérifié en réel.
+
+- **Module `quotes/`** : `DRAFT → SENT → ACCEPTED / REJECTED` (+ `EXPIRED`
+  déduit de la date de validité). Un devis naît d'une opportunité **qui a
+  un client** (400 sinon), en brouillon, avec la devise de l'opportunité,
+  le taux de TVA et la durée de validité de l'entreprise.
+- **Human in the loop (section 6)** : rien ne part sans action explicite.
+  L'envoi (`POST /quotes/:id/send`) est déclenché par un utilisateur, qui
+  choisit le destinataire ; l'acceptation et le refus sont enregistrés par
+  un utilisateur.
+- **Totaux côté serveur** : `computeQuoteTotals` (`@kps/shared`) ; l'API
+  refuse tout total fourni par le client. L'éditeur affiche un aperçu avec
+  la même fonction.
+- **PDF réel** (`pdfkit`, texte sélectionnable, A4, pagination des lignes) :
+  identité de l'entreprise, destinataire, lignes, remise, TVA, total,
+  remarques, conditions, IBAN.
+- **Envoi par email réel** avec le PDF joint ; si l'email échoue, le devis
+  reste en brouillon (502). Chaque envoi fige une **version** (instantané
+  complet). Un devis envoyé ne se modifie pas : « Réviser » le repasse en
+  brouillon (`QUOTE_REVISED`), le prochain envoi crée la version suivante.
+- **Identité de l'entreprise** (`company/`, `/settings`) : raison sociale,
+  adresse, TVA, IBAN, taux par défaut, validité, conditions. **Aucune
+  valeur inventée** : la ligne est créée vide, et sans raison sociale aucun
+  PDF ni envoi n'est possible. **À renseigner par l'utilisateur** avant le
+  premier vrai devis.
+- **Chaîne** : devis créé / envoyé / accepté / refusé → opportunité
+  (workflows `opportunity-stage-on-quote-*`, action
+  `SET_OPPORTUNITY_STAGE`) → demande (workflow de la Phase 17).
+- **Événements** `QUOTE_CREATED`, `QUOTE_SENT`, `QUOTE_REVISED` (nouveau),
+  `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, sur l'entité `quote`, visibles dans
+  les timelines du devis et de la demande. Notifications : envoyé, accepté
+  (in-app + email), refusé.
+- **Permissions** : `quotes.read`, `quotes.manage` (admins, commerciaux),
+  `settings.manage` (admins).
+- Dates des devis au fuseau `Europe/Zurich` (constante dans
+  `quotes.service.ts`).
+
+Frontend : `/quotes` (recherche, filtre par statut), `/quotes/[id]`
+(éditeur de lignes avec aperçu des totaux, envoi, PDF, refus avec motif,
+révision, versions avec leur PDF, historique), carte « Devis » sur les
+fiches opportunité (création) et client, carte « Entreprise » dans
+Paramètres (lecture seule hors administrateurs).
+
+Limites connues : pas de lien d'acceptation en ligne pour le client
+(l'équipe enregistre sa réponse) ; l'email du devis n'est pas rattaché à
+la conversation de la demande ; pas de logo sur le PDF (à ajouter avec le
+stockage de fichiers, Phase 20) ; `QUOTE_REQUIRED` (catalogue section 4)
+n'est émis par rien.
+
+Tests : 4 unitaires (calcul, mise en forme) ; **12 e2e réels**
+(`quotes.e2e-spec.ts`, tous verts, aucun ne dépend de Claude) — identité
+de l'entreprise, création, totaux serveur, PDF relu (`pdf-parse`), email
+reçu par IMAP avec PDF joint relu, versions, refus, acceptation, statuts
+409, liste et expiration, devis d'une demande. Navigateur réel : **42
+contrôles, axe sans violation** (paramètres, création, éditeur, PDF
+téléchargés, envoi, refus, révision, acceptation, liste, mobile 390 px,
+observateur).
+
+Prochaine étape : **Phase 19 — Missions & tâches**.
 
 ## Intégration des sites web (akoraweb) — demandes reçues par API
 

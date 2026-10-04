@@ -4,6 +4,7 @@ import {
   FormStatus,
   OpportunityStatus,
   PriorityLevel,
+  QuoteStatus,
   RequestIntent,
   RequestStatus,
   ServiceStatus,
@@ -106,6 +107,43 @@ export const OPPORTUNITY_STAGE_PROBABILITY: Record<OpportunityStatus, number> = 
   [OpportunityStatus.WON]: 100,
   [OpportunityStatus.LOST]: 0,
 };
+
+/** Libellés d'affichage des statuts de devis (section 51). */
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  [QuoteStatus.DRAFT]: "Brouillon",
+  [QuoteStatus.SENT]: "Envoyé",
+  [QuoteStatus.ACCEPTED]: "Accepté",
+  [QuoteStatus.REJECTED]: "Refusé",
+  [QuoteStatus.EXPIRED]: "Expiré",
+};
+
+export interface QuoteLineInput {
+  quantity: number;
+  unitPrice: number;
+  discountPercent: number;
+}
+
+const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+
+/**
+ * Calcul d'un devis (section 51). Source unique : l'API l'applique à
+ * l'enregistrement (elle fait autorité), l'interface s'en sert pour
+ * l'aperçu pendant la saisie. Chaque ligne est arrondie au centime, puis
+ * la remise globale et la taxe sont calculées sur les montants arrondis.
+ */
+export function computeQuoteTotals(
+  lines: QuoteLineInput[],
+  discountPercent: number,
+  taxRate: number,
+): { lineTotals: number[]; subtotal: number; discount: number; taxAmount: number; total: number } {
+  const lineTotals = lines.map((line) =>
+    roundMoney(line.quantity * line.unitPrice * (1 - line.discountPercent / 100)),
+  );
+  const subtotal = roundMoney(lineTotals.reduce((sum, value) => sum + value, 0));
+  const discount = roundMoney((subtotal * discountPercent) / 100);
+  const taxAmount = roundMoney(((subtotal - discount) * taxRate) / 100);
+  return { lineTotals, subtotal, discount, taxAmount, total: roundMoney(subtotal - discount + taxAmount) };
+}
 
 /** Libellés d'affichage des niveaux de priorité/urgence. */
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {

@@ -8,6 +8,7 @@ import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module";
 import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
+import { CompanyModule } from "./company/company.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { EmailModule } from "./email/email.module";
 import { EventsModule } from "./events/events.module";
@@ -18,6 +19,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { OpportunitiesModule } from "./opportunities/opportunities.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
 import { QualificationAnalysisModule } from "./qualification-analysis/qualification-analysis.module";
+import { QuotesModule } from "./quotes/quotes.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
@@ -86,6 +88,8 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     QualificationAnalysisModule,
     MatchingModule,
     OpportunitiesModule,
+    CompanyModule,
+    QuotesModule,
     TeamModule,
     NotificationsModule,
     AuthModule,

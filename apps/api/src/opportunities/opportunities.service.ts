@@ -358,6 +358,25 @@ export class OpportunitiesService {
     return opportunity;
   }
 
+  // Action de workflow SET_OPPORTUNITY_STAGE : le devis fait avancer son
+  // opportunité, jamais reculer — et ne rouvre pas une opportunité déjà
+  // gagnée ou perdue (décision humaine).
+  async advanceTo(
+    opportunityId: string,
+    stage: OpportunityStatus,
+    actor: EventActor,
+  ): Promise<{ status: "DONE" | "SKIPPED"; detail: string }> {
+    const current = await this.findById(opportunityId);
+    if (CLOSED_STAGES.includes(current.status)) {
+      return { status: "SKIPPED", detail: "L'opportunité est déjà gagnée ou perdue." };
+    }
+    if (OPPORTUNITY_PIPELINE.indexOf(stage) <= OPPORTUNITY_PIPELINE.indexOf(current.status)) {
+      return { status: "SKIPPED", detail: "L'opportunité est déjà à cette étape ou plus avancée." };
+    }
+    await this.changeStage(opportunityId, { status: stage }, actor);
+    return { status: "DONE", detail: `Opportunité : ${stage}.` };
+  }
+
   // Action de workflow SYNC_REQUEST_STATUS : aligne le statut de la demande
   // sur l'étape de son opportunité.
   async syncRequestStatus(requestId: string): Promise<{ status: "DONE" | "SKIPPED"; detail: string }> {

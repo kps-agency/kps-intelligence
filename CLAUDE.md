@@ -66,8 +66,9 @@ parties IA reportées (liste dans `docs/AI_CONTEXT.md`).
 | — | Ingestion formulaires sites web (akoraweb), webhook signé | ✅ |
 | 16 | Analyse des réponses (section 40) + équipe + matching explicable | ✅ |
 | 17 | Opportunités (Kanban, création automatique après matching) | ✅ sauf tests e2e via Claude (crédit) |
-| 18 | Devis | ⏭️ prochaine |
-| 19-25 | Missions, documents, dashboard, i18n/RGPD, audit, tests, prod | à faire |
+| 18 | Devis (PDF, envoi email, versions, identité de l'entreprise) | ✅ sauf proposition par l'IA (crédit) |
+| **19** | **Missions & tâches** | ⏭️ prochaine |
+| 20-25 | Documents, dashboard, i18n/RGPD, audit, tests, prod | à faire |
 
 ## Mise en route (environnement cloud)
 
@@ -112,6 +113,7 @@ toucher au `pnpm dev` de l'utilisateur.
 apps/api/src/
   events/          EventBus (emit → persiste dans `events` → handlers), timeline
   opportunities/   pipeline commercial (Kanban), création depuis une demande
+  quotes/ company/ devis (totaux serveur, PDF pdfkit, versions) ; identité de l'entreprise
   workflows/       WorkflowEngine : workflows en base, vocabulaire fermé
                    (workflow-definition.ts), actions (workflow-actions.service.ts),
                    étapes différées BullMQ
@@ -279,6 +281,13 @@ push.
   de toute la documentation.
 
 ## En attente côté utilisateur (à ne pas oublier)
+
+- **Crédit du compte Anthropic** : sans lui, aucune analyse Claude.
+  À son retour : régression e2e complète + proposition de devis par l'IA
+  (Phase 18) et autres parties IA reportées.
+- **Identité de l'entreprise** (Paramètres → Entreprise) : raison sociale,
+  adresse, n° de TVA, IBAN, taux de TVA, conditions. Vide tant qu'elle
+  n'est pas saisie : aucun devis ne peut être généré ni envoyé.
 
 - **Compte Meta WhatsApp Business** : identifiants + webhook HTTPS public
   → écrire `whatsapp.e2e-spec.ts` (Phase 12 jamais vérifiée en réel), et

@@ -66,11 +66,17 @@ Une demande ne peut être assignée qu'à un utilisateur actif dont le rôle a
 | `OPPORTUNITY_STAGE_CHANGED` (hors gagnée / perdue) | Opportunité : changement d'étape | Commercial | In-app | Basse |
 | `OPPORTUNITY_WON` | Opportunité gagnée | Commercial + Responsable | In-app + email | Haute |
 | `OPPORTUNITY_LOST` | Opportunité perdue | Commercial + Responsable | In-app | Moyenne |
+| `QUOTE_SENT` | Devis envoyé | Commercial + Responsable | In-app | Moyenne |
+| `QUOTE_ACCEPTED` | Devis accepté | Commercial + Responsable | In-app + email | Haute |
+| `QUOTE_REJECTED` | Devis refusé | Commercial + Responsable | In-app | Haute |
 
 `QUALIFICATION_REQUIRED` n'est notifié que pour une demande saisie à la
 main : une demande entrante (email/WhatsApp) reçoit le lien
-automatiquement, il n'y a rien à faire. Les règles de devis et de
-missions (section 5) s'ajouteront avec les Phases 18 et 19.
+automatiquement, il n'y a rien à faire. Les règles des missions
+(section 5) s'ajouteront avec la Phase 19. Pour un devis, « Commercial »
+= le responsable de son opportunité ; la notification pointe vers
+`/quotes/:id` (variables : `reference`, `title`, `clientName`,
+`valueSuffix` = total TTC, `reasonSuffix`).
 
 Une notification d'opportunité pointe vers `/opportunities/:id`
 (`related_entity_type = opportunity`) et fonctionne aussi pour une

@@ -510,19 +510,25 @@ quotes
   id                uuid pk
   opportunity_id     uuid fk -> opportunities(id) on delete cascade not null
   client_id           uuid fk -> clients(id) on delete restrict not null
-  reference            text unique not null      -- ex: DEVIS-2026-0031
+  reference            text unique not null      -- DEVIS-{AAAA}-{NNNN}, default generate_quote_reference()
+  title                text not null
+  notes                text                      -- remarques affichées sur le devis
   status               quote_status not null default 'DRAFT'
                                              -- DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
   currency              text default 'CHF'
   subtotal               numeric(12,2) not null default 0
-  discount                numeric(12,2) not null default 0
+  discount_percent        numeric(5,2) not null default 0   -- remise globale saisie
+  discount                numeric(12,2) not null default 0  -- son montant calculé
   tax_rate                 numeric(5,2) not null default 0
-  total                     numeric(12,2) not null default 0
+  tax_amount               numeric(12,2) not null default 0
+  total                     numeric(12,2) not null default 0  -- TTC
   valid_until               date
   created_by                 uuid fk -> users(id) on delete set null
   sent_at                    timestamptz
   accepted_at                timestamptz
   rejected_at                 timestamptz
+  rejection_reason            text
+  sent_to                     text                -- destinataire du dernier envoi
   created_at                    timestamptz
   updated_at                    timestamptz
 
@@ -561,6 +567,23 @@ Compléments de la Phase 17 (migration `20261004000002`) :
 - **Probabilité** : réinitialisée à celle de l'étape à chaque changement
   d'étape (`OPPORTUNITY_STAGE_PROBABILITY` dans `@kps/shared`),
   ajustable entre deux.
+
+Compléments de la Phase 18 (migrations `20261005000001/2`) :
+- **Totaux** : calculés par l'API (`computeQuoteTotals` dans
+  `@kps/shared`, aussi utilisée par l'interface pour l'aperçu) — ligne
+  arrondie au centime, remise globale sur le sous-total, TVA sur le net.
+- **`save_quote_content`** : enregistre l'en-tête et remplace les lignes
+  en une transaction ; refuse (P0001 → 409) un devis qui n'est plus un
+  brouillon.
+- **`mark_quote_sent`** : crée la version (instantané complet : devis,
+  lignes, client, identité de l'entreprise) et passe à `SENT`, en une
+  transaction. Une version se régénère donc à l'identique en PDF.
+- **`EXPIRED` n'est jamais écrit** : statut déduit (devis `SENT` dont
+  `valid_until` est passé), aucune tâche planifiée.
+- **`company_settings`** : une seule ligne (clé booléenne contrainte à
+  `true`), créée vide. Rien n'y est pré-rempli : sans raison sociale,
+  aucun PDF ni envoi.
+- `quote_reference_counters` : compteur annuel des références.
 
 `quote_versions.snapshot` est le seul JSONB "métier" volontairement figé :
 c'est un historique immuable, pas une donnée interrogeable — il ne

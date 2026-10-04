@@ -80,7 +80,13 @@ export const NAV_GROUPS: NavGroup[] = [
         available: true,
         requiredPermission: "opportunities.read",
       },
-      { label: "Devis", href: "/quotes", icon: FileText, available: false, phase: 18 },
+      {
+        label: "Devis",
+        href: "/quotes",
+        icon: FileText,
+        available: true,
+        requiredPermission: "quotes.read",
+      },
     ],
   },
   {
@@ -133,7 +139,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/settings",
         icon: Settings,
         available: true,
-        requiredPermission: "users.read",
+        requiredPermission: "quotes.read",
       },
     ],
   },

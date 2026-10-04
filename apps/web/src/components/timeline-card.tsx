@@ -132,6 +132,18 @@ function describe(event: TimelineEventResponse): string {
       return "Opportunité gagnée";
     case "OPPORTUNITY_LOST":
       return text(p.lostReason) ? `Opportunité perdue : ${text(p.lostReason)}` : "Opportunité perdue";
+    case "QUOTE_CREATED":
+      return `Devis ${text(p.reference)} créé`;
+    case "QUOTE_SENT":
+      return `Devis ${text(p.reference)} envoyé à ${text(p.sentTo)} (version ${String(p.version)})`;
+    case "QUOTE_REVISED":
+      return `Devis ${text(p.reference)} repassé en brouillon pour révision`;
+    case "QUOTE_ACCEPTED":
+      return `Devis ${text(p.reference)} accepté par le client`;
+    case "QUOTE_REJECTED":
+      return text(p.reason)
+        ? `Devis ${text(p.reference)} refusé : ${text(p.reason)}`
+        : `Devis ${text(p.reference)} refusé par le client`;
     case "REQUEST_ASSIGNED":
       return `Demande assignée à ${text(p.assignedUserName) || "un utilisateur"}`;
     case "TEAM_NOTIFIED":

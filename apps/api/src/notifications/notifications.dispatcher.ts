@@ -85,8 +85,11 @@ export class NotificationsDispatcher implements OnModuleInit {
   }
 
   async dispatch(event: DomainEvent): Promise<void> {
-    const isOpportunity = event.entityType === EventEntityType.OPPORTUNITY;
-    if (!isOpportunity && !event.requestId) return;
+    // Opportunités et devis portent leurs propres notifications (ils
+    // peuvent ne pas avoir de demande d'origine).
+    const ownSubject =
+      event.entityType === EventEntityType.OPPORTUNITY || event.entityType === EventEntityType.QUOTE;
+    if (!ownSubject && !event.requestId) return;
 
     // Les destinataires sont figés au premier traitement de l'événement.
     // Recalculés lors d'un rejeu, ils suivraient l'état *actuel* de la
@@ -101,9 +104,12 @@ export class NotificationsDispatcher implements OnModuleInit {
     if (error) throw toDbException(error);
     if ((alreadyDispatched ?? 0) > 0) return;
 
-    const request = isOpportunity
-      ? await this.loadOpportunity(event.entityId)
-      : await this.loadRequest(event.requestId as string);
+    const request =
+      event.entityType === EventEntityType.OPPORTUNITY
+        ? await this.loadOpportunity(event.entityId)
+        : event.entityType === EventEntityType.QUOTE
+          ? await this.loadQuote(event.entityId)
+          : await this.loadRequest(event.requestId as string);
     if (!request) return;
 
     const rules = NOTIFICATION_RULES.filter(
@@ -315,6 +321,38 @@ export class NotificationsDispatcher implements OnModuleInit {
     };
   }
 
+  // Devis : notifié au responsable de son opportunité.
+  private async loadQuote(quoteId: string): Promise<SubjectContext | null> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("quotes")
+      .select(
+        "id, reference, title, total, currency, clients(company_name), opportunities(request_id, owner_user_id, requests(source))",
+      )
+      .eq("id", quoteId)
+      .maybeSingle();
+    if (error) throw toDbException(error);
+    if (!data) return null;
+
+    const opportunity = data.opportunities as {
+      request_id: string | null;
+      owner_user_id: string | null;
+      requests: { source: string } | null;
+    } | null;
+    return {
+      entityType: EventEntityType.QUOTE,
+      entityId: data.id,
+      requestId: opportunity?.request_id ?? null,
+      reference: data.reference,
+      subject: data.title,
+      source: opportunity?.requests?.source ?? "MANUAL",
+      assignedUserId: opportunity?.owner_user_id ?? null,
+      path: `/quotes/${data.id}`,
+      clientName: (data.clients as { company_name: string } | null)?.company_name ?? NO_CLIENT,
+      valueSuffix: ` (${amountFormatter.format(Number(data.total))} ${data.currency ?? ""} TTC)`,
+    };
+  }
+
   private async loadOpportunity(opportunityId: string): Promise<SubjectContext | null> {
     const { data, error } = await this.supabase
       .getClient()
@@ -377,6 +415,7 @@ export class NotificationsDispatcher implements OnModuleInit {
       valueSuffix: request.valueSuffix,
       stage: stageLabel(payload.to),
       fromStage: stageLabel(payload.from),
+      reasonSuffix: typeof payload.reason === "string" && payload.reason ? ` : ${payload.reason}` : "",
       lostReasonSuffix:
         typeof payload.lostReason === "string" && payload.lostReason ? ` : ${payload.lostReason}` : "",
     };

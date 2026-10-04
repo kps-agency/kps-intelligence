@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } fro
 import { Pencil } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { QuotesCard } from "@/components/quotes-card";
 import { TimelineCard } from "@/components/timeline-card";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -224,6 +225,7 @@ export function OpportunityDetail({
 
       <StageCard opportunity={data} canManage={canManage} />
       <InfoCard opportunity={data} canManage={canManage} />
+      <QuotesCard opportunityId={data.id} canCreate={data.clientId !== null} />
       <TimelineCard timeline={timeline} />
     </div>
   );

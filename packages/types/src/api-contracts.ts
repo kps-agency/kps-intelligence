@@ -12,6 +12,7 @@ import type {
   OpportunityStatus,
   PriorityLevel,
   QualificationSessionStatus,
+  QuoteStatus,
   QualificationVerdict,
   RequestIntent,
   RequestSource,
@@ -740,6 +741,125 @@ export interface ChangeOpportunityStageRequest {
   // Pris en compte uniquement pour l'étape LOST.
   lostReason?: string | null;
 }
+
+// ---- Devis (section 51) ----
+
+export interface QuoteItemResponse {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercent: number;
+  // Montant de la ligne, hors taxe, remise de ligne déduite.
+  total: number;
+}
+
+// Totaux d'un devis, toujours calculés par le serveur.
+export interface QuoteTotals {
+  subtotal: number;
+  // Montant de la remise globale (discountPercent appliqué au sous-total).
+  discount: number;
+  taxAmount: number;
+  // Total TTC.
+  total: number;
+}
+
+export interface QuoteListItemResponse extends QuoteTotals {
+  id: string;
+  reference: string;
+  title: string;
+  // EXPIRED est déduit : devis envoyé dont la date de validité est passée.
+  status: QuoteStatus;
+  opportunityId: string;
+  opportunityTitle: string;
+  clientId: string;
+  clientCompanyName: string;
+  currency: string;
+  discountPercent: number;
+  taxRate: number;
+  validUntil: string | null;
+  sentAt: string | null;
+  sentTo: string | null;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuoteVersionResponse {
+  version: number;
+  total: number;
+  currency: string;
+  sentTo: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface QuoteResponse extends QuoteListItemResponse {
+  notes: string | null;
+  requestId: string | null;
+  // Destinataire proposé à l'envoi : contact de la demande, sinon contact
+  // principal ou email du client.
+  suggestedRecipient: string | null;
+  items: QuoteItemResponse[];
+  versions: QuoteVersionResponse[];
+}
+
+// Corps de POST /quotes : le devis naît en brouillon, sans ligne.
+export interface CreateQuoteRequest {
+  opportunityId: string;
+  title?: string;
+}
+
+export interface QuoteItemInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercent: number;
+}
+
+// Corps de PUT /quotes/:id : le contenu complet du brouillon.
+export interface UpdateQuoteRequest {
+  title: string;
+  notes: string | null;
+  currency: string;
+  validUntil: string | null;
+  discountPercent: number;
+  taxRate: number;
+  items: QuoteItemInput[];
+}
+
+// Corps de POST /quotes/:id/send.
+export interface SendQuoteRequest {
+  to: string;
+  message?: string | null;
+}
+
+export interface RejectQuoteRequest {
+  reason?: string | null;
+}
+
+// Identité de l'émetteur des devis (GET/PUT /company-settings).
+export interface CompanySettingsResponse {
+  legalName: string | null;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  country: string | null;
+  vatNumber: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  iban: string | null;
+  defaultTaxRate: number;
+  quoteValidityDays: number;
+  quoteTerms: string | null;
+  updatedAt: string;
+}
+
+export type UpdateCompanySettingsRequest = Omit<CompanySettingsResponse, "updatedAt">;
 
 // ---- Workflow Engine (sections 39, 45, 46) ----
 

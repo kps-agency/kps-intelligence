@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventEntityType, EventType } from "@kps/types";
+import type { OpportunityStatus } from "@kps/types";
 import { toDbException } from "../common/db-error";
 import {
   ConversationsService,
@@ -16,10 +17,17 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 
 export interface ActionContext {
-  requestId: string;
+  // Absente pour un objet sans demande d'origine (opportunité ou devis
+  // saisis à la main).
+  requestId: string | null;
+  // L'objet de l'événement déclencheur (demande, session, devis...).
+  subjectType: string | null;
+  subjectId: string | null;
   sessionId: string | null;
   payload: Record<string, unknown>;
 }
+
+type RequestActionContext = ActionContext & { requestId: string };
 
 // DONE : l'action a eu lieu. SKIPPED : rien à faire (déjà fait, pas de
 // destinataire...), sans que ce soit une erreur. Une erreur est levée.
@@ -54,6 +62,20 @@ export class WorkflowActionsService {
     type: string,
     params: Record<string, unknown>,
     context: ActionContext,
+  ): Promise<ActionResult> {
+    if (type === "SET_OPPORTUNITY_STAGE") {
+      return this.setOpportunityStage(context, params.stage as OpportunityStatus);
+    }
+    // Toutes les autres actions portent sur une demande.
+    const requestId = context.requestId;
+    if (!requestId) return { status: "SKIPPED", detail: "Aucune demande concernée." };
+    return this.executeForRequest(type, params, { ...context, requestId });
+  }
+
+  private async executeForRequest(
+    type: string,
+    params: Record<string, unknown>,
+    context: RequestActionContext,
   ): Promise<ActionResult> {
     switch (type) {
       case "REQUIRE_QUALIFICATION":
@@ -93,9 +115,27 @@ export class WorkflowActionsService {
     }
   }
 
+  private async setOpportunityStage(
+    context: ActionContext,
+    stage: OpportunityStatus,
+  ): Promise<ActionResult> {
+    if (context.subjectType !== EventEntityType.QUOTE || !context.subjectId) {
+      return { status: "SKIPPED", detail: "Aucun devis concerné." };
+    }
+    const { data: quote, error } = await this.supabase
+      .getClient()
+      .from("quotes")
+      .select("opportunity_id")
+      .eq("id", context.subjectId)
+      .maybeSingle();
+    if (error) throw toDbException(error);
+    if (!quote) return { status: "SKIPPED", detail: "Devis introuvable." };
+    return this.opportunities.advanceTo(quote.opportunity_id, stage, AUTOMATION_ACTOR);
+  }
+
   // Idempotent : ni second lien, ni seconde « qualification requise » pour
   // le même service si l'analyse est relancée.
-  private async requireQualification(context: ActionContext): Promise<ActionResult> {
+  private async requireQualification(context: RequestActionContext): Promise<ActionResult> {
     const slug = String(context.payload.serviceSlug ?? "");
     const service = (await this.servicesService.list()).find((s) => s.slug === slug);
     if (!service?.qualificationFormId) {
@@ -134,7 +174,7 @@ export class WorkflowActionsService {
     return { status: "DONE", detail: `Qualification requise (${service.name}).` };
   }
 
-  private async sendQualificationLink(context: ActionContext): Promise<ActionResult> {
+  private async sendQualificationLink(context: RequestActionContext): Promise<ActionResult> {
     const formId = String(context.payload.formId ?? "");
     const serviceName = String(context.payload.serviceName ?? "");
     const target = await this.conversationsService.findReplyTarget(context.requestId);
@@ -181,7 +221,7 @@ export class WorkflowActionsService {
   }
 
   private async sendQualificationReminder(
-    context: ActionContext,
+    context: RequestActionContext,
     channel: ConversationChannel,
   ): Promise<ActionResult> {
     const sessionId = context.sessionId;

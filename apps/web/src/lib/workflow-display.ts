@@ -20,6 +20,10 @@ export const EVENT_LABELS: Record<string, string> = {
   OPPORTUNITY_STAGE_CHANGED: "Opportunité : changement d'étape",
   OPPORTUNITY_WON: "Opportunité gagnée",
   OPPORTUNITY_LOST: "Opportunité perdue",
+  QUOTE_CREATED: "Devis créé",
+  QUOTE_SENT: "Devis envoyé",
+  QUOTE_ACCEPTED: "Devis accepté",
+  QUOTE_REJECTED: "Devis refusé",
 };
 
 export const OPERATOR_LABELS: Record<WorkflowConditionOperator, string> = {
@@ -47,6 +51,10 @@ export const VALUE_LABELS: Record<string, string> = {
   QUALIFIED: "Qualifiée",
   MATCHING: "Recherche d'équipe",
   ASSIGNED: "Assignée",
+  PROPOSAL_REQUIRED: "Devis à préparer",
+  PROPOSAL_SENT: "Devis envoyé",
+  NEGOTIATION: "Négociation",
+  WON: "Gagnée",
 };
 
 export const RUN_STATUS: Record<WorkflowRunStatus, { label: string; variant: BadgeProps["variant"] }> = {

@@ -195,6 +195,71 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          default_tax_rate: number
+          email: string | null
+          iban: string | null
+          id: boolean
+          legal_name: string | null
+          phone: string | null
+          postal_code: string | null
+          quote_terms: string | null
+          quote_validity_days: number
+          updated_at: string
+          updated_by: string | null
+          vat_number: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          default_tax_rate?: number
+          email?: string | null
+          iban?: string | null
+          id?: boolean
+          legal_name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          quote_terms?: string | null
+          quote_validity_days?: number
+          updated_at?: string
+          updated_by?: string | null
+          vat_number?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          default_tax_rate?: number
+          email?: string | null
+          iban?: string | null
+          id?: boolean
+          legal_name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          quote_terms?: string | null
+          quote_validity_days?: number
+          updated_at?: string
+          updated_by?: string | null
+          vat_number?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           client_id: string
@@ -1177,6 +1242,21 @@ export type Database = {
           },
         ]
       }
+      quote_reference_counters: {
+        Row: {
+          last_value: number
+          year: number
+        }
+        Insert: {
+          last_value?: number
+          year: number
+        }
+        Update: {
+          last_value?: number
+          year?: number
+        }
+        Relationships: []
+      }
       quote_versions: {
         Row: {
           created_at: string
@@ -1227,14 +1307,20 @@ export type Database = {
           created_by: string | null
           currency: string | null
           discount: number
+          discount_percent: number
           id: string
+          notes: string | null
           opportunity_id: string
           reference: string
           rejected_at: string | null
+          rejection_reason: string | null
           sent_at: string | null
+          sent_to: string | null
           status: Database["public"]["Enums"]["quote_status"]
           subtotal: number
+          tax_amount: number
           tax_rate: number
+          title: string
           total: number
           updated_at: string
           valid_until: string | null
@@ -1246,14 +1332,20 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           discount?: number
+          discount_percent?: number
           id?: string
+          notes?: string | null
           opportunity_id: string
-          reference: string
+          reference?: string
           rejected_at?: string | null
+          rejection_reason?: string | null
           sent_at?: string | null
+          sent_to?: string | null
           status?: Database["public"]["Enums"]["quote_status"]
           subtotal?: number
+          tax_amount?: number
           tax_rate?: number
+          title: string
           total?: number
           updated_at?: string
           valid_until?: string | null
@@ -1265,14 +1357,20 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           discount?: number
+          discount_percent?: number
           id?: string
+          notes?: string | null
           opportunity_id?: string
           reference?: string
           rejected_at?: string | null
+          rejection_reason?: string | null
           sent_at?: string | null
+          sent_to?: string | null
           status?: Database["public"]["Enums"]["quote_status"]
           subtotal?: number
+          tax_amount?: number
           tax_rate?: number
+          title?: string
           total?: number
           updated_at?: string
           valid_until?: string | null
@@ -1940,8 +2038,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_quote_reference: { Args: never; Returns: string }
       generate_request_reference: { Args: never; Returns: string }
       get_role_permissions: { Args: { p_role_id: string }; Returns: string[] }
+      mark_quote_sent: {
+        Args: {
+          p_quote_id: string
+          p_sent_to: string
+          p_snapshot: Json
+          p_user_id: string
+        }
+        Returns: number
+      }
       reorder_form_fields: {
         Args: { p_field_ids: string[]; p_form_step_id: string }
         Returns: undefined
@@ -1952,6 +2060,10 @@ export type Database = {
       }
       replace_user_skills: {
         Args: { p_skills: Json; p_user_id: string }
+        Returns: undefined
+      }
+      save_quote_content: {
+        Args: { p_items: Json; p_quote: Json; p_quote_id: string }
         Returns: undefined
       }
       set_primary_contact: {
@@ -2010,6 +2122,7 @@ export type Database = {
         | "OPPORTUNITY_STAGE_CHANGED"
         | "OPPORTUNITY_WON"
         | "OPPORTUNITY_LOST"
+        | "QUOTE_REVISED"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2273,6 +2386,7 @@ export const Constants = {
         "OPPORTUNITY_STAGE_CHANGED",
         "OPPORTUNITY_WON",
         "OPPORTUNITY_LOST",
+        "QUOTE_REVISED",
       ],
       form_field_type: [
         "TEXT",

@@ -24,6 +24,29 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const response = await apiRequest(path, init);
+
+  // 204 No Content (ex. DELETE) : aucun corps à parser.
+  if (response.status === 204) return undefined as T;
+
+  return (await response.json()) as T;
+}
+
+// Téléchargement d'un fichier protégé (PDF d'un devis) : l'API exige le
+// token, un simple lien <a href> ne peut donc pas y pointer.
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const response = await apiRequest(path, {});
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function apiRequest(path: string, init: RequestInit): Promise<Response> {
   const supabase = createSupabaseBrowserClient();
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -62,8 +85,5 @@ export async function apiFetch<T>(
     );
   }
 
-  // 204 No Content (ex. DELETE) : aucun corps à parser.
-  if (response.status === 204) return undefined as T;
-
-  return (await response.json()) as T;
+  return response;
 }

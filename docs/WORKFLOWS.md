@@ -51,6 +51,7 @@ satisfait que `notExists`.
 | `ANALYZE_QUALIFICATION` | Analyse des réponses par Claude (section 40) : qualifie, disqualifie, ou demande une validation humaine |
 | `START_MATCHING` | Calcule le matching équipe de la demande (recommandation) |
 | `CREATE_OPPORTUNITY` | Crée l'opportunité de la demande (titre, client, service, responsable repris de la demande ; description = résumé de l'analyse Claude). Idempotent : une seule opportunité par demande (index unique sur `request_id`) |
+| `SET_OPPORTUNITY_STAGE` (`stage` = `PROPOSAL_REQUIRED` / `PROPOSAL_SENT` / `NEGOTIATION` / `WON`) | Fait avancer l'opportunité du devis concerné. Jamais en arrière, jamais sur une opportunité déjà gagnée ou perdue (tracé « ignoré »). Seule action qui ne porte pas sur une demande : elle fonctionne aussi pour un devis sans demande d'origine |
 | `SYNC_REQUEST_STATUS` | Aligne le statut de la demande sur l'étape de son opportunité : `PROPOSAL_REQUIRED` → `QUOTE_PENDING`, `PROPOSAL_SENT` → `QUOTE_SENT`, `NEGOTIATION`, `WON`, `LOST`. Sans effet aux étapes `NEW` / `QUALIFIED`, ni sur une demande déjà convertie en mission ou clôturée |
 
 ## Workflows livrés
@@ -64,6 +65,10 @@ satisfait que `notExists`.
 | `matching-on-qualified` | `REQUEST_QUALIFIED` | — | `START_MATCHING` |
 | `opportunity-on-matching` | `MATCHING_COMPLETED` | statut de la demande parmi `QUALIFIED`, `MATCHING`, `ASSIGNED` | `CREATE_OPPORTUNITY` |
 | `request-status-on-opportunity-stage` | `OPPORTUNITY_STAGE_CHANGED` | — | `SYNC_REQUEST_STATUS` |
+| `opportunity-stage-on-quote-created` | `QUOTE_CREATED` | — | `SET_OPPORTUNITY_STAGE` → `PROPOSAL_REQUIRED` |
+| `opportunity-stage-on-quote-sent` | `QUOTE_SENT` | — | `SET_OPPORTUNITY_STAGE` → `PROPOSAL_SENT` |
+| `opportunity-stage-on-quote-accepted` | `QUOTE_ACCEPTED` | — | `SET_OPPORTUNITY_STAGE` → `WON` |
+| `opportunity-stage-on-quote-rejected` | `QUOTE_REJECTED` | — | `SET_OPPORTUNITY_STAGE` → `NEGOTIATION` |
 
 `qualification-analysis` et `matching-on-qualified` (Phase 16) réalisent
 la chaîne de la section 45 : formulaire complété → analyse Claude →
@@ -91,8 +96,17 @@ suppression de workflow par l'API : la section 46 prévoit une interface
 de création « plus tard » ; les workflows livrés sont activables et
 paramétrables (délais, valeurs des conditions).
 
-Les règles des phases suivantes (devis, missions) s'ajouteront comme
-actions et workflows livrés aux Phases 18 et 19.
+**Devis (Phase 18)** : le devis fait avancer son opportunité, qui fait
+avancer la demande (`request-status-on-opportunity-stage`) — devis créé →
+demande « Devis à préparer », envoyé → « Devis envoyé », accepté →
+« Gagnée ». Un devis refusé met l'opportunité en négociation plutôt que
+de la perdre : c'est à l'équipe de décider (nouveau devis, ou « Perdue »
+à la main). Depuis cette phase, le moteur transmet aux actions l'objet
+de l'événement (`subjectType` / `subjectId`) et n'exige plus une demande :
+les actions qui en ont besoin se déclarent elles-mêmes « ignorées ».
+
+Les règles des missions s'ajouteront à la Phase 19 (`OPPORTUNITY_WON` →
+mission).
 
 ## Exécution
 

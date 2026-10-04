@@ -9,6 +9,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { EventEntityType } from "@kps/types";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { RequirePermissions } from "../auth/require-permissions.decorator";
 import { userActor } from "../events/event-bus.service";
@@ -63,7 +64,7 @@ export class OpportunitiesController {
   @RequirePermissions("opportunities.read")
   async timeline(@Param("id", ParseUUIDPipe) id: string) {
     await this.opportunitiesService.findById(id);
-    return this.timelineService.forOpportunity(id);
+    return this.timelineService.forEntity(EventEntityType.OPPORTUNITY, id);
   }
 
   @Post()

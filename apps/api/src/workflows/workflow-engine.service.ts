@@ -250,12 +250,10 @@ export class WorkflowEngine implements OnModuleInit, OnModuleDestroy {
       if (!evaluateConditions(step.conditions, context)) {
         return { index, status: "SKIPPED", at, detail: "Conditions non remplies." };
       }
-      if (!run.request_id) {
-        return { index, status: "SKIPPED", at, detail: "Aucune demande concernée." };
-      }
-
       const result = await this.actions.execute(step.action.type, step.action.params, {
         requestId: run.request_id,
+        subjectType: run.subject_type,
+        subjectId: run.subject_id,
         sessionId,
         payload,
       });

@@ -140,6 +140,14 @@ export enum OpportunityStatus {
   LOST = "LOST",
 }
 
+export enum QuoteStatus {
+  DRAFT = "DRAFT",
+  SENT = "SENT",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  EXPIRED = "EXPIRED",
+}
+
 export enum MissionStatus {
   PLANNED = "PLANNED",
   IN_PROGRESS = "IN_PROGRESS",
@@ -243,6 +251,8 @@ export enum EventType {
   OPPORTUNITY_STAGE_CHANGED = "OPPORTUNITY_STAGE_CHANGED",
   OPPORTUNITY_WON = "OPPORTUNITY_WON",
   OPPORTUNITY_LOST = "OPPORTUNITY_LOST",
+  // Ajout Phase 18 : un devis envoyé repasse en brouillon pour correction.
+  QUOTE_REVISED = "QUOTE_REVISED",
 }
 
 export enum WorkflowRunStatus {
@@ -259,4 +269,5 @@ export enum EventEntityType {
   QUALIFICATION_SESSION = "qualification_session",
   CONVERSATION = "conversation",
   OPPORTUNITY = "opportunity",
+  QUOTE = "quote",
 }

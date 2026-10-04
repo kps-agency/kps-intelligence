@@ -6,6 +6,7 @@ import {
   type QualificationEmailParams,
 } from "./templates/qualification-email";
 import { renderQualificationReminderEmail } from "./templates/qualification-reminder-email";
+import { renderQuoteEmail, type QuoteEmailParams } from "./templates/quote-email";
 
 const logger = new Logger("EmailService");
 
@@ -62,6 +63,24 @@ export class EmailService {
       references: inReplyTo,
     });
     logger.log({ to, messageId: info.messageId }, "Relance de qualification envoyée");
+    return { messageId: info.messageId, subject };
+  }
+
+  async sendQuoteEmail(
+    to: string,
+    params: QuoteEmailParams,
+    pdf: { filename: string; content: Buffer },
+  ): Promise<{ messageId: string; subject: string }> {
+    const { subject, text, html } = renderQuoteEmail(params);
+    const info = await this.transporter.sendMail({
+      from: this.from,
+      to,
+      subject,
+      text,
+      html,
+      attachments: [{ filename: pdf.filename, content: pdf.content, contentType: "application/pdf" }],
+    });
+    logger.log({ to, messageId: info.messageId }, "Devis envoyé par email");
     return { messageId: info.messageId, subject };
   }
 
