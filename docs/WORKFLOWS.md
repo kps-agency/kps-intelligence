@@ -50,6 +50,8 @@ satisfait que `notExists`.
 | `SEND_QUALIFICATION_REMINDER` (`channel` = `EMAIL`/`WHATSAPP`) | Relance avec un lien neuf, émet `QUALIFICATION_REMINDER_SENT` |
 | `ANALYZE_QUALIFICATION` | Analyse des réponses par Claude (section 40) : qualifie, disqualifie, ou demande une validation humaine |
 | `START_MATCHING` | Calcule le matching équipe de la demande (recommandation) |
+| `CREATE_OPPORTUNITY` | Crée l'opportunité de la demande (titre, client, service, responsable repris de la demande ; description = résumé de l'analyse Claude). Idempotent : une seule opportunité par demande (index unique sur `request_id`) |
+| `SYNC_REQUEST_STATUS` | Aligne le statut de la demande sur l'étape de son opportunité : `PROPOSAL_REQUIRED` → `QUOTE_PENDING`, `PROPOSAL_SENT` → `QUOTE_SENT`, `NEGOTIATION`, `WON`, `LOST`. Sans effet aux étapes `NEW` / `QUALIFIED`, ni sur une demande déjà convertie en mission ou clôturée |
 
 ## Workflows livrés
 
@@ -60,9 +62,27 @@ satisfait que `notExists`.
 | `qualification-reminders` | `QUALIFICATION_LINK_SENT` | — | 48 h → si lien toujours « envoyé » → relance email ; 24 h → idem → relance WhatsApp. Annulé si lien ouvert, formulaire commencé/complété, lien révoqué ou expiré |
 | `qualification-analysis` | `FORM_COMPLETED` | — | `ANALYZE_QUALIFICATION` |
 | `matching-on-qualified` | `REQUEST_QUALIFIED` | — | `START_MATCHING` |
+| `opportunity-on-matching` | `MATCHING_COMPLETED` | statut de la demande parmi `QUALIFIED`, `MATCHING`, `ASSIGNED` | `CREATE_OPPORTUNITY` |
+| `request-status-on-opportunity-stage` | `OPPORTUNITY_STAGE_CHANGED` | — | `SYNC_REQUEST_STATUS` |
 
-Les deux derniers (Phase 16) réalisent la chaîne de la section 45 :
-formulaire complété → analyse Claude → qualifiée → matching.
+`qualification-analysis` et `matching-on-qualified` (Phase 16) réalisent
+la chaîne de la section 45 : formulaire complété → analyse Claude →
+qualifiée → matching. `opportunity-on-matching` (Phase 17) la prolonge :
+matching terminé → opportunité.
+
+**Déclencheur de l'opportunité (décision du 04/10/2026)** :
+`MATCHING_COMPLETED` plutôt que `TEAM_MEMBER_ASSIGNED`. Le matching est
+automatique, l'affectation est un geste humain : aucune demande
+qualifiée ne reste hors du pipeline si personne n'affecte l'équipe. La
+condition sur le statut écarte un matching lancé à la main sur une
+demande non qualifiée (l'opportunité se crée alors depuis la fiche
+demande, à l'étape « Nouvelle »).
+
+Un changement d'étape émet toujours `OPPORTUNITY_STAGE_CHANGED`
+(`from`, `to`) ; `OPPORTUNITY_WON` et `OPPORTUNITY_LOST` s'y ajoutent
+comme jalons (déclencheur de la mission en Phase 19). Un workflow dont
+l'événement porte sur une opportunité sans demande d'origine est tracé
+« ignoré » (aucune demande concernée).
 
 Les deux premiers remplacent la règle codée en dur de la Phase 13
 (module `qualification-dispatch`, supprimé) : le seuil de confiance et
@@ -71,9 +91,8 @@ suppression de workflow par l'API : la section 46 prévoit une interface
 de création « plus tard » ; les workflows livrés sont activables et
 paramétrables (délais, valeurs des conditions).
 
-Les règles des phases suivantes (matching, devis, missions — section 45 :
-« SI QUALIFIED → démarrer matching ») s'ajouteront comme actions et
-workflows livrés au fil des Phases 16 à 19.
+Les règles des phases suivantes (devis, missions) s'ajouteront comme
+actions et workflows livrés aux Phases 18 et 19.
 
 ## Exécution
 

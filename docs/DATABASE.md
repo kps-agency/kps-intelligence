@@ -488,16 +488,21 @@ matching_results
 ```text
 opportunities
   id                   uuid pk
-  request_id             uuid fk -> requests(id) on delete set null
-  client_id               uuid fk -> clients(id) on delete restrict not null
+  request_id             uuid fk -> requests(id) on delete cascade   -- unique si non nul
+  client_id               uuid fk -> clients(id) on delete restrict   -- nullable (voir ci-dessous)
+  title                    text not null
+  description              text
   service_id               uuid fk -> services(id) on delete set null
   status                   opportunity_status not null default 'NEW'
                                              -- NEW, QUALIFIED, PROPOSAL_REQUIRED,
                                              -- PROPOSAL_SENT, NEGOTIATION, WON, LOST
   estimated_value           numeric(12,2)
   currency                   text default 'CHF'
+  probability                smallint check (0..100)   -- % de gain, celle de l'étape par défaut
   owner_user_id              uuid fk -> users(id) on delete set null
   expected_close_date         date
+  lost_reason                  text
+  closed_at                    timestamptz              -- passage à WON ou LOST
   created_at                   timestamptz
   updated_at                   timestamptz
 
@@ -541,6 +546,21 @@ quote_versions
 
   unique (quote_id, version)
 ```
+
+Compléments de la Phase 17 (migration `20261004000002`) :
+- **`client_id` nullable** : une demande entrante n'a un client que si
+  l'expéditeur est déjà un contact connu ; l'opportunité d'un nouveau
+  prospect naît donc sans client, rattaché ensuite (obligatoire au plus
+  tard pour le devis, `quotes.client_id` restant `not null`).
+- **Une opportunité par demande** : index unique partiel sur
+  `request_id` — clé d'idempotence de la création automatique.
+- **`request_id` en cascade** (au lieu de `set null`) : même choix que
+  `events` et `workflow_runs`. Une demande n'est jamais supprimée par
+  l'application ; sans cascade, chaque demande de test laisserait une
+  opportunité orpheline dans le pipeline.
+- **Probabilité** : réinitialisée à celle de l'étape à chaque changement
+  d'étape (`OPPORTUNITY_STAGE_PROBABILITY` dans `@kps/shared`),
+  ajustable entre deux.
 
 `quote_versions.snapshot` est le seul JSONB "métier" volontairement figé :
 c'est un historique immuable, pas une donnée interrogeable — il ne

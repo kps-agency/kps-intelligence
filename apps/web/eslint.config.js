@@ -11,6 +11,6 @@ module.exports = [
     },
   },
   {
-    ignores: [".next/**", "node_modules/**", "next-env.d.ts"],
+    ignores: [".next/**", ".next-*/**", "node_modules/**", "next-env.d.ts"],
   },
 ];

@@ -33,7 +33,7 @@ Slack / Teams : prévus plus tard (section 5), hors V1.
 
 | Public | Résolution |
 |---|---|
-| Commercial | L'utilisateur **assigné** à la demande (`requests.assigned_user_id`) s'il est actif, sinon **tous les commerciaux actifs** (rôle `SALES`) |
+| Commercial | L'utilisateur **assigné** à la demande (`requests.assigned_user_id`) — pour un événement d'opportunité, son **responsable** (`opportunities.owner_user_id`) — s'il est actif, sinon **tous les commerciaux actifs** (rôle `SALES`) |
 | Responsable | Rôle `DIRECTOR` |
 | Responsable technique | Rôle `TECHNICAL_MANAGER` |
 | Assigné | La personne à qui la demande vient d'être confiée |
@@ -62,11 +62,22 @@ Une demande ne peut être assignée qu'à un utilisateur actif dont le rôle a
 | `QUALIFICATION_ANALYSIS_COMPLETED` (validation humaine requise) | Qualification à valider | Responsable + Commercial | In-app + email | Haute |
 | `MATCHING_COMPLETED` | Matching terminé | Responsable + Responsable technique | In-app | Moyenne |
 | `TEAM_MEMBER_ASSIGNED` | Affectation à une demande (critique) | Collaborateur affecté | In-app + email | Haute |
+| `OPPORTUNITY_CREATED` | Nouvelle opportunité | Commercial + Responsable | In-app | Moyenne |
+| `OPPORTUNITY_STAGE_CHANGED` (hors gagnée / perdue) | Opportunité : changement d'étape | Commercial | In-app | Basse |
+| `OPPORTUNITY_WON` | Opportunité gagnée | Commercial + Responsable | In-app + email | Haute |
+| `OPPORTUNITY_LOST` | Opportunité perdue | Commercial + Responsable | In-app | Moyenne |
 
 `QUALIFICATION_REQUIRED` n'est notifié que pour une demande saisie à la
 main : une demande entrante (email/WhatsApp) reçoit le lien
-automatiquement, il n'y a rien à faire. Les règles de matching, devis et
-missions (section 5) s'ajouteront avec les Phases 16 à 19.
+automatiquement, il n'y a rien à faire. Les règles de devis et de
+missions (section 5) s'ajouteront avec les Phases 18 et 19.
+
+Une notification d'opportunité pointe vers `/opportunities/:id`
+(`related_entity_type = opportunity`) et fonctionne aussi pour une
+opportunité saisie à la main, sans demande d'origine. Variables de
+template propres au pipeline : `title`, `clientName` (société, sinon
+contact de la demande, sinon « prospect sans fiche client »),
+`valueSuffix`, `stage`, `fromStage`, `lostReasonSuffix`.
 
 ## Préférences
 

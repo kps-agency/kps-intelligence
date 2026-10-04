@@ -965,42 +965,57 @@ export type Database = {
       }
       opportunities: {
         Row: {
-          client_id: string
+          client_id: string | null
+          closed_at: string | null
           created_at: string
           currency: string | null
+          description: string | null
           estimated_value: number | null
           expected_close_date: string | null
           id: string
+          lost_reason: string | null
           owner_user_id: string | null
+          probability: number | null
           request_id: string | null
           service_id: string | null
           status: Database["public"]["Enums"]["opportunity_status"]
+          title: string
           updated_at: string
         }
         Insert: {
-          client_id: string
+          client_id?: string | null
+          closed_at?: string | null
           created_at?: string
           currency?: string | null
+          description?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
           id?: string
+          lost_reason?: string | null
           owner_user_id?: string | null
+          probability?: number | null
           request_id?: string | null
           service_id?: string | null
           status?: Database["public"]["Enums"]["opportunity_status"]
+          title: string
           updated_at?: string
         }
         Update: {
-          client_id?: string
+          client_id?: string | null
+          closed_at?: string | null
           created_at?: string
           currency?: string | null
+          description?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
           id?: string
+          lost_reason?: string | null
           owner_user_id?: string | null
+          probability?: number | null
           request_id?: string | null
           service_id?: string | null
           status?: Database["public"]["Enums"]["opportunity_status"]
+          title?: string
           updated_at?: string
         }
         Relationships: [
@@ -1991,6 +2006,10 @@ export type Database = {
         | "TEAM_NOTIFIED"
         | "QUALIFICATION_REMINDER_SENT"
         | "TEAM_MEMBER_UNASSIGNED"
+        | "OPPORTUNITY_CREATED"
+        | "OPPORTUNITY_STAGE_CHANGED"
+        | "OPPORTUNITY_WON"
+        | "OPPORTUNITY_LOST"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2250,6 +2269,10 @@ export const Constants = {
         "TEAM_NOTIFIED",
         "QUALIFICATION_REMINDER_SENT",
         "TEAM_MEMBER_UNASSIGNED",
+        "OPPORTUNITY_CREATED",
+        "OPPORTUNITY_STAGE_CHANGED",
+        "OPPORTUNITY_WON",
+        "OPPORTUNITY_LOST",
       ],
       form_field_type: [
         "TEXT",

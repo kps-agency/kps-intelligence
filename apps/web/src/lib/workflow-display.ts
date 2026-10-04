@@ -14,6 +14,12 @@ export const EVENT_LABELS: Record<string, string> = {
   FORM_COMPLETED: "Formulaire complété",
   QUALIFICATION_LINK_REVOKED: "Lien révoqué",
   QUALIFICATION_LINK_EXPIRED: "Lien expiré",
+  REQUEST_QUALIFIED: "Demande qualifiée",
+  MATCHING_COMPLETED: "Matching terminé",
+  OPPORTUNITY_CREATED: "Opportunité créée",
+  OPPORTUNITY_STAGE_CHANGED: "Opportunité : changement d'étape",
+  OPPORTUNITY_WON: "Opportunité gagnée",
+  OPPORTUNITY_LOST: "Opportunité perdue",
 };
 
 export const OPERATOR_LABELS: Record<WorkflowConditionOperator, string> = {
@@ -38,6 +44,9 @@ export const VALUE_LABELS: Record<string, string> = {
   EMAIL: "email",
   WHATSAPP: "WhatsApp",
   MANUAL: "saisie manuelle",
+  QUALIFIED: "Qualifiée",
+  MATCHING: "Recherche d'équipe",
+  ASSIGNED: "Assignée",
 };
 
 export const RUN_STATUS: Record<WorkflowRunStatus, { label: string; variant: BadgeProps["variant"] }> = {

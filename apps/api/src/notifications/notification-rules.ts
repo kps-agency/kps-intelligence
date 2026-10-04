@@ -2,8 +2,8 @@ import { EventType, PriorityLevel, RequestSource } from "@kps/types";
 import type { DomainEvent } from "../events/event-bus.service";
 
 // Destinataires, résolus par NotificationsDispatcher :
-// - COMMERCIAL : l'utilisateur assigné à la demande, sinon tous les
-//   commerciaux actifs ;
+// - COMMERCIAL : l'utilisateur assigné à la demande (ou le responsable de
+//   l'opportunité), sinon tous les commerciaux actifs ;
 // - RESPONSABLE : les directeurs ;
 // - TECHNICAL_MANAGER : les responsables techniques ;
 // - ASSIGNEE : la personne à qui la demande vient d'être confiée.
@@ -147,6 +147,40 @@ export const NOTIFICATION_RULES: NotificationRule[] = [
     channels: ["IN_APP", "EMAIL"],
     priority: PriorityLevel.HIGH,
     critical: true,
+  },
+  {
+    key: "OPPORTUNITY_CREATED",
+    eventType: EventType.OPPORTUNITY_CREATED,
+    label: "Nouvelle opportunité",
+    audiences: ["COMMERCIAL", "RESPONSABLE"],
+    channels: ["IN_APP"],
+    priority: PriorityLevel.MEDIUM,
+  },
+  {
+    // Gagnée et perdue ont leur propre règle : pas de doublon ici.
+    key: "OPPORTUNITY_STAGE_CHANGED",
+    eventType: EventType.OPPORTUNITY_STAGE_CHANGED,
+    label: "Opportunité : changement d'étape",
+    audiences: ["COMMERCIAL"],
+    channels: ["IN_APP"],
+    priority: PriorityLevel.LOW,
+    applies: (event) => event.payload.to !== "WON" && event.payload.to !== "LOST",
+  },
+  {
+    key: "OPPORTUNITY_WON",
+    eventType: EventType.OPPORTUNITY_WON,
+    label: "Opportunité gagnée",
+    audiences: ["COMMERCIAL", "RESPONSABLE"],
+    channels: ["IN_APP", "EMAIL"],
+    priority: PriorityLevel.HIGH,
+  },
+  {
+    key: "OPPORTUNITY_LOST",
+    eventType: EventType.OPPORTUNITY_LOST,
+    label: "Opportunité perdue",
+    audiences: ["COMMERCIAL", "RESPONSABLE"],
+    channels: ["IN_APP"],
+    priority: PriorityLevel.MEDIUM,
   },
   {
     key: "CONVERSATION_MESSAGE_RECEIVED",

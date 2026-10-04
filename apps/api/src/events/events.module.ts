@@ -8,6 +8,6 @@ import { TimelineService } from "./timeline.service";
 @Module({
   controllers: [TimelineController],
   providers: [EventBus, TimelineService],
-  exports: [EventBus],
+  exports: [EventBus, TimelineService],
 })
 export class EventsModule {}

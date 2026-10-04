@@ -236,6 +236,13 @@ export enum EventType {
   QUALIFICATION_REMINDER_SENT = "QUALIFICATION_REMINDER_SENT",
   // Ajout Phase 16.
   TEAM_MEMBER_UNASSIGNED = "TEAM_MEMBER_UNASSIGNED",
+  // Ajouts Phase 17 (pipeline commercial, section 50). Un changement
+  // d'étape produit toujours OPPORTUNITY_STAGE_CHANGED ; WON et LOST s'y
+  // ajoutent comme jalons métier (déclencheur de la mission en Phase 19).
+  OPPORTUNITY_CREATED = "OPPORTUNITY_CREATED",
+  OPPORTUNITY_STAGE_CHANGED = "OPPORTUNITY_STAGE_CHANGED",
+  OPPORTUNITY_WON = "OPPORTUNITY_WON",
+  OPPORTUNITY_LOST = "OPPORTUNITY_LOST",
 }
 
 export enum WorkflowRunStatus {
@@ -251,4 +258,5 @@ export enum EventEntityType {
   REQUEST = "request",
   QUALIFICATION_SESSION = "qualification_session",
   CONVERSATION = "conversation",
+  OPPORTUNITY = "opportunity",
 }

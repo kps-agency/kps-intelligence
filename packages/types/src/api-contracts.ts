@@ -9,6 +9,7 @@ import type {
   FormFieldType,
   FormStatus,
   NotificationChannel,
+  OpportunityStatus,
   PriorityLevel,
   QualificationSessionStatus,
   QualificationVerdict,
@@ -502,7 +503,8 @@ export interface PublicQualificationSessionResponse {
   responses: Record<string, unknown>;
 }
 
-// Élément de GET /requests/:id/timeline (section 43), dans l'ordre
+// Élément de GET /requests/:id/timeline et GET /opportunities/:id/timeline
+// (section 43), dans l'ordre
 // chronologique. `actorName` n'est renseigné que pour un acteur USER.
 export interface TimelineEventResponse {
   id: string;
@@ -648,6 +650,95 @@ export interface RequestMatchingResponse {
   requiredSkills: string[];
   candidates: MatchingCandidateResponse[];
   teamMembers: RequestTeamMemberResponse[];
+}
+
+// ---- Opportunités (section 50) ----
+
+export interface OpportunityResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  status: OpportunityStatus;
+  // Demande d'origine (absente pour une opportunité saisie à la main).
+  requestId: string | null;
+  requestReference: string | null;
+  // Le prospect d'une demande entrante n'a pas toujours de fiche client :
+  // `contactFullName` (contact de la demande) le désigne en attendant.
+  clientId: string | null;
+  clientCompanyName: string | null;
+  contactFullName: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
+  estimatedValue: number | null;
+  currency: string | null;
+  // Probabilité de gain en % : celle de l'étape par défaut, ajustable.
+  probability: number | null;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  expectedCloseDate: string | null;
+  lostReason: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Total d'une colonne du Kanban, par devise (jamais d'addition de devises
+// différentes). `weightedValue` = valeur × probabilité.
+export interface OpportunityColumnTotal {
+  currency: string;
+  value: number;
+  weightedValue: number;
+}
+
+export interface OpportunityBoardColumn {
+  status: OpportunityStatus;
+  count: number;
+  totals: OpportunityColumnTotal[];
+  // Les plus récemment modifiées d'abord, plafonnées par colonne (`count`
+  // donne le total réel).
+  items: OpportunityResponse[];
+}
+
+// Réponse de GET /opportunities/board : une colonne par étape, dans
+// l'ordre du pipeline.
+export interface OpportunityBoardResponse {
+  columns: OpportunityBoardColumn[];
+}
+
+// Corps de POST /opportunities. Avec `requestId`, l'opportunité est créée
+// depuis la demande (titre, client, service, responsable repris de la
+// demande) : les autres champs sont alors ignorés.
+export interface CreateOpportunityRequest {
+  requestId?: string;
+  title?: string;
+  description?: string | null;
+  clientId?: string | null;
+  serviceId?: string | null;
+  estimatedValue?: number | null;
+  currency?: string | null;
+  ownerUserId?: string | null;
+  expectedCloseDate?: string | null;
+}
+
+// Corps de PATCH /opportunities/:id. `null` efface le champ. L'étape se
+// change par PATCH /opportunities/:id/stage.
+export interface UpdateOpportunityRequest {
+  title?: string;
+  description?: string | null;
+  clientId?: string | null;
+  serviceId?: string | null;
+  estimatedValue?: number | null;
+  currency?: string | null;
+  probability?: number | null;
+  ownerUserId?: string | null;
+  expectedCloseDate?: string | null;
+}
+
+// Corps de PATCH /opportunities/:id/stage.
+export interface ChangeOpportunityStageRequest {
+  status: OpportunityStatus;
+  // Pris en compte uniquement pour l'étape LOST.
+  lostReason?: string | null;
 }
 
 // ---- Workflow Engine (sections 39, 45, 46) ----

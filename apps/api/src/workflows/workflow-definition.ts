@@ -50,6 +50,11 @@ export const ACTION_TYPES: Record<
   },
   ANALYZE_QUALIFICATION: { label: "Analyser les réponses avec Claude", params: {} },
   START_MATCHING: { label: "Calculer le matching équipe", params: {} },
+  CREATE_OPPORTUNITY: { label: "Créer l'opportunité de la demande", params: {} },
+  SYNC_REQUEST_STATUS: {
+    label: "Aligner le statut de la demande sur l'étape de l'opportunité",
+    params: {},
+  },
 };
 
 export const MAX_STEPS = 10;

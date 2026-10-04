@@ -1,7 +1,8 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { OPPORTUNITY_STATUS_LABELS } from "@kps/shared";
 import { EventEntityType, EventType } from "@kps/types";
-import type { Database } from "@kps/types";
+import type { Database, OpportunityStatus } from "@kps/types";
 import { toDbException } from "../common/db-error";
 import { EventBus, SYSTEM_ACTOR, type DomainEvent } from "../events/event-bus.service";
 import { SupabaseService } from "../supabase/supabase.service";
@@ -25,13 +26,24 @@ interface Recipient {
   language: string;
 }
 
-interface RequestContext {
-  id: string;
+// L'objet d'une notification : la demande, ou l'opportunité pour les
+// événements du pipeline (qui peut ne pas avoir de demande d'origine).
+interface SubjectContext {
+  entityType: EventEntityType;
+  entityId: string;
+  requestId: string | null;
   reference: string;
   subject: string;
   source: string;
-  assigned_user_id: string | null;
+  // Demande : utilisateur assigné ; opportunité : son responsable.
+  assignedUserId: string | null;
+  path: string;
+  clientName: string;
+  valueSuffix: string;
 }
+
+const NO_CLIENT = "prospect sans fiche client";
+const amountFormatter = new Intl.NumberFormat("fr-CH", { maximumFractionDigits: 2 });
 
 const DEFAULT_LANGUAGE = "fr";
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
@@ -73,7 +85,8 @@ export class NotificationsDispatcher implements OnModuleInit {
   }
 
   async dispatch(event: DomainEvent): Promise<void> {
-    if (!event.requestId) return;
+    const isOpportunity = event.entityType === EventEntityType.OPPORTUNITY;
+    if (!isOpportunity && !event.requestId) return;
 
     // Les destinataires sont figés au premier traitement de l'événement.
     // Recalculés lors d'un rejeu, ils suivraient l'état *actuel* de la
@@ -88,7 +101,9 @@ export class NotificationsDispatcher implements OnModuleInit {
     if (error) throw toDbException(error);
     if ((alreadyDispatched ?? 0) > 0) return;
 
-    const request = await this.loadRequest(event.requestId);
+    const request = isOpportunity
+      ? await this.loadOpportunity(event.entityId)
+      : await this.loadRequest(event.requestId as string);
     if (!request) return;
 
     const rules = NOTIFICATION_RULES.filter(
@@ -105,7 +120,7 @@ export class NotificationsDispatcher implements OnModuleInit {
   private async dispatchRule(
     rule: NotificationRule,
     event: DomainEvent,
-    request: RequestContext,
+    request: SubjectContext,
   ): Promise<void> {
     const recipients = new Map<string, Recipient>();
     for (const audience of rule.audiences) {
@@ -139,9 +154,9 @@ export class NotificationsDispatcher implements OnModuleInit {
           priority: rule.priority,
           title: renderTemplate(template.subject ?? rule.label, variables),
           body: renderTemplate(template.body, variables),
-          related_entity_type: EventEntityType.REQUEST,
-          related_entity_id: request.id,
-          link: `/requests/${request.id}`,
+          related_entity_type: request.entityType,
+          related_entity_id: request.entityId,
+          link: request.path,
           // L'in-app est délivré en étant écrit ; l'email quand il est parti.
           sent_at: channel === "IN_APP" ? new Date().toISOString() : null,
         });
@@ -178,9 +193,9 @@ export class NotificationsDispatcher implements OnModuleInit {
     }
     await this.eventBus.emit({
       type: EventType.TEAM_NOTIFIED,
-      entityType: EventEntityType.REQUEST,
-      entityId: request.id,
-      requestId: request.id,
+      entityType: request.entityType,
+      entityId: request.entityId,
+      requestId: request.requestId,
       actor: SYSTEM_ACTOR,
       payload: {
         rule: rule.key,
@@ -197,7 +212,7 @@ export class NotificationsDispatcher implements OnModuleInit {
   private async resolveAudience(
     audience: Audience,
     event: DomainEvent,
-    request: RequestContext,
+    request: SubjectContext,
   ): Promise<Recipient[]> {
     if (audience === "TEAM_MEMBER") {
       const userId = event.payload.userId;
@@ -207,12 +222,12 @@ export class NotificationsDispatcher implements OnModuleInit {
       const assigneeId =
         typeof event.payload.assignedUserId === "string"
           ? event.payload.assignedUserId
-          : request.assigned_user_id;
+          : request.assignedUserId;
       return assigneeId ? this.activeUsers({ ids: [assigneeId] }) : [];
     }
 
-    if (audience === "COMMERCIAL" && request.assigned_user_id) {
-      const assigned = await this.activeUsers({ ids: [request.assigned_user_id] });
+    if (audience === "COMMERCIAL" && request.assignedUserId) {
+      const assigned = await this.activeUsers({ ids: [request.assignedUserId] });
       if (assigned.length > 0) return assigned;
     }
 
@@ -277,7 +292,7 @@ export class NotificationsDispatcher implements OnModuleInit {
     return new Map(data.map((t) => [`${t.channel}:${t.language}`, t]));
   }
 
-  private async loadRequest(requestId: string): Promise<RequestContext | null> {
+  private async loadRequest(requestId: string): Promise<SubjectContext | null> {
     const { data, error } = await this.supabase
       .getClient()
       .from("requests")
@@ -285,12 +300,60 @@ export class NotificationsDispatcher implements OnModuleInit {
       .eq("id", requestId)
       .maybeSingle();
     if (error) throw toDbException(error);
-    return data;
+    if (!data) return null;
+    return {
+      entityType: EventEntityType.REQUEST,
+      entityId: data.id,
+      requestId: data.id,
+      reference: data.reference,
+      subject: data.subject,
+      source: data.source,
+      assignedUserId: data.assigned_user_id,
+      path: `/requests/${data.id}`,
+      clientName: "—",
+      valueSuffix: "",
+    };
+  }
+
+  private async loadOpportunity(opportunityId: string): Promise<SubjectContext | null> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("opportunities")
+      .select(
+        "id, title, request_id, owner_user_id, estimated_value, currency, clients(company_name), requests(reference, source, contacts(first_name, last_name))",
+      )
+      .eq("id", opportunityId)
+      .maybeSingle();
+    if (error) throw toDbException(error);
+    if (!data) return null;
+
+    const origin = data.requests as {
+      reference: string;
+      source: string;
+      contacts: { first_name: string; last_name: string } | null;
+    } | null;
+    const company = (data.clients as { company_name: string } | null)?.company_name;
+    const contact = origin?.contacts ? `${origin.contacts.first_name} ${origin.contacts.last_name}` : null;
+    return {
+      entityType: EventEntityType.OPPORTUNITY,
+      entityId: data.id,
+      requestId: data.request_id,
+      reference: origin?.reference ?? "",
+      subject: data.title,
+      source: origin?.source ?? "MANUAL",
+      assignedUserId: data.owner_user_id,
+      path: `/opportunities/${data.id}`,
+      clientName: company ?? contact ?? NO_CLIENT,
+      valueSuffix:
+        data.estimated_value !== null && data.currency
+          ? ` (${amountFormatter.format(Number(data.estimated_value))} ${data.currency})`
+          : "",
+    };
   }
 
   private async variables(
     event: DomainEvent,
-    request: RequestContext,
+    request: SubjectContext,
   ): Promise<Record<string, string>> {
     const payload = event.payload;
     const confidence =
@@ -308,7 +371,14 @@ export class NotificationsDispatcher implements OnModuleInit {
             .map((c) => `${c.name ?? ""} (${c.score ?? 0} %)`)
             .join(", ") || "aucun profil disponible"
         : "—",
-      link: `${this.config.getOrThrow<string>("APP_URL")}/requests/${request.id}`,
+      link: `${this.config.getOrThrow<string>("APP_URL")}${request.path}`,
+      title: request.subject,
+      clientName: request.clientName,
+      valueSuffix: request.valueSuffix,
+      stage: stageLabel(payload.to),
+      fromStage: stageLabel(payload.from),
+      lostReasonSuffix:
+        typeof payload.lostReason === "string" && payload.lostReason ? ` : ${payload.lostReason}` : "",
     };
   }
 
@@ -318,4 +388,8 @@ export class NotificationsDispatcher implements OnModuleInit {
     const [user] = await this.activeUsers({ ids: [event.actor.id] });
     return user?.fullName ?? "un utilisateur";
   }
+}
+
+function stageLabel(value: unknown): string {
+  return OPPORTUNITY_STATUS_LABELS[value as OpportunityStatus] ?? "—";
 }

@@ -1,16 +1,15 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import type {
-  EventActorType,
-  EventEntityType,
-  EventType,
-  TimelineEventResponse,
-} from "@kps/types";
+import { EventEntityType } from "@kps/types";
+import type { Database, EventActorType, EventType, TimelineEventResponse } from "@kps/types";
 import { toDbException } from "../common/db-error";
 import { SupabaseService } from "../supabase/supabase.service";
 
-// Timeline d'une demande (section 43) : reconstruite uniquement à partir
-// de la table `events` — aucune autre source n'est consultée, ce qui
-// garantit que tout ce qui s'affiche ici a réellement été journalisé.
+type EventRow = Database["public"]["Tables"]["events"]["Row"];
+
+// Timeline d'une demande ou d'une opportunité (section 43) : reconstruite
+// uniquement à partir de la table `events` — aucune autre source n'est
+// consultée, ce qui garantit que tout ce qui s'affiche ici a réellement
+// été journalisé.
 @Injectable()
 export class TimelineService {
   constructor(private readonly supabase: SupabaseService) {}
@@ -32,7 +31,24 @@ export class TimelineService {
       .eq("request_id", requestId)
       .order("created_at", { ascending: true });
     if (error) throw toDbException(error);
+    return this.toResponses(events);
+  }
 
+  // Événements portés par l'opportunité elle-même (création, étapes,
+  // notifications) ; ceux de sa demande d'origine restent sur la demande.
+  async forOpportunity(opportunityId: string): Promise<TimelineEventResponse[]> {
+    const { data: events, error } = await this.supabase
+      .getClient()
+      .from("events")
+      .select("*")
+      .eq("entity_type", EventEntityType.OPPORTUNITY)
+      .eq("entity_id", opportunityId)
+      .order("created_at", { ascending: true });
+    if (error) throw toDbException(error);
+    return this.toResponses(events);
+  }
+
+  private async toResponses(events: EventRow[]): Promise<TimelineEventResponse[]> {
     const userIds = [
       ...new Set(
         events
@@ -42,7 +58,8 @@ export class TimelineService {
     ];
     const names = new Map<string, string>();
     if (userIds.length > 0) {
-      const { data: users, error: usersError } = await client
+      const { data: users, error: usersError } = await this.supabase
+        .getClient()
         .from("users")
         .select("id, first_name, last_name")
         .in("id", userIds);

@@ -2,6 +2,7 @@
 
 import { Card, CardContent, Skeleton } from "@kps/ui";
 import Link from "next/link";
+import { OpportunitiesCard } from "@/components/opportunities-card";
 import { ApiError } from "@/lib/api-client";
 import { useRequestDetail } from "@/lib/queries/requests";
 import { RequestAnalysisCard } from "./request-analysis-card";
@@ -65,6 +66,7 @@ export function RequestDetail({
       {canManage && <RequestQualificationCard request={req.data} />}
       <RequestQualificationAnalysisCard requestId={requestId} canManage={canManage} />
       <RequestMatchingCard requestId={requestId} />
+      <OpportunitiesCard requestId={requestId} />
       <RequestTimelineCard requestId={requestId} />
     </div>
   );

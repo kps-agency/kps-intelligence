@@ -1191,10 +1191,8 @@ automatique, compétences requises demandées à Claude après une
 qualification manuelle. Navigateur réel : 18 contrôles, axe sans
 violation (profil en édition, liste, fiche avec matching).
 
-Prochaine étape : **Phase 17 — Opportunités** (pipeline Kanban, création
-automatique depuis une demande qualifiée + matching terminé). Pas de
-checkpoint externe. Les tests réels WhatsApp (Phase 12) restent à faire
-dès que le compte Meta existe.
+Les tests réels WhatsApp (Phase 12) restent à faire dès que le compte
+Meta existe. Suite : Phase 17 (ci-dessous).
 
 **Checkpoints externes** :
 1. ✅ Compte Supabase — fait (Phase 2).
@@ -1202,6 +1200,91 @@ dès que le compte Meta existe.
 3. ✅ Provider email — fait (Phase 11, compte Gmail).
 4. ⏳ Compte Meta WhatsApp Business Cloud API — code prêt (Phase 12),
    credentials et tests réels en attente.
+
+## Phase 17 — Opportunités (sections 45, 50)
+
+> ⚠️ **Commitée sans la partie Claude du gate** (décision utilisateur du
+> 05/10/2026 : « continuer sans Claude ») : le compte Anthropic n'a plus
+> de crédit (« credit balance is too low »), donc toute analyse Claude
+> échoue — régression e2e à 172/201, les 29 échecs étant les tests qui
+> passent par Claude. **À refaire dès le crédit rétabli** : la régression
+> e2e complète, dont les 3 tests de la chaîne formulaire → Claude →
+> matching → opportunité. Tout le reste ci-dessous est vérifié en réel.
+
+- **Module `opportunities/`** : pipeline `NEW → QUALIFIED →
+  PROPOSAL_REQUIRED → PROPOSAL_SENT → NEGOTIATION → WON / LOST`, titre,
+  description, valeur estimée, devise (déduite du pays du client ou de la
+  demande : Suisse → CHF, Canada → CAD, sinon EUR), probabilité (celle de
+  l'étape, ajustable), responsable, clôture prévue, motif de perte, date de
+  clôture. Pas de suppression : une opportunité abandonnée passe à `LOST`.
+  Toute transition est permise (réouverture comprise) ; le motif et la date
+  de clôture ne survivent pas à une réouverture.
+- **Création automatique** : workflow livré `opportunity-on-matching`
+  (`MATCHING_COMPLETED`, demande `QUALIFIED` / `MATCHING` / `ASSIGNED`) →
+  action `CREATE_OPPORTUNITY`. **Déclencheur tranché avec l'utilisateur** :
+  `MATCHING_COMPLETED` et non `TEAM_MEMBER_ASSIGNED` (automatique, donc
+  aucune demande qualifiée hors pipeline). Idempotente : index unique sur
+  `request_id` + insertion qui retombe sur l'existante en cas de course.
+  L'opportunité entre à l'étape « Qualifiée », reprend sujet, client,
+  service, commercial assigné, et le résumé de l'analyse Claude en
+  description. Création manuelle possible depuis le Kanban ou depuis une
+  fiche demande (`POST /opportunities {requestId}`).
+- **Statut de la demande** : workflow `request-status-on-opportunity-stage`
+  → action `SYNC_REQUEST_STATUS` (devis à préparer, devis envoyé,
+  négociation, gagnée, perdue). La Phase 18 n'aura qu'à faire avancer
+  l'opportunité, la demande suivra.
+- **Événements** : `OPPORTUNITY_CREATED`, `OPPORTUNITY_STAGE_CHANGED`
+  (toujours), `OPPORTUNITY_WON` / `OPPORTUNITY_LOST` (jalons, en plus),
+  portés par l'entité `opportunity` avec `request_id` renseigné : visibles
+  dans la timeline de la demande **et** dans celle de l'opportunité
+  (`GET /opportunities/:id/timeline`). Déposer une carte dans sa propre
+  colonne ne trace rien ; deux déplacements simultanés ne produisent qu'un
+  événement (mise à jour filtrée sur l'étape lue).
+- **Notifications** : le dispatcher sait désormais notifier pour une
+  opportunité (lien `/opportunities/:id`, y compris sans demande
+  d'origine) ; « Commercial » = responsable de l'opportunité. Créée →
+  commercial + responsable ; étape → commercial ; gagnée → commercial +
+  responsable (in-app + email) ; perdue → commercial + responsable.
+- **Permissions** : `opportunities.read` (tous sauf collaborateur),
+  `opportunities.manage` (admins, commerciaux).
+- **Écarts de schéma corrigés** (migrations `20261004000001/2`) :
+  `client_id` nullable (un prospect entrant n'a pas de fiche client),
+  colonnes `title`, `description`, `probability`, `lost_reason`,
+  `closed_at`, `request_id` en cascade. Détail : `docs/DATABASE.md` §9.
+
+Frontend : `/opportunities` — Kanban 7 colonnes (compteur, total par
+devise, valeur pondérée), recherche, filtre par responsable, création.
+Déplacement : glisser-déposer souris / tactile (appui maintenu) / clavier
+(`@dnd-kit/core` : Espace, ← →, Espace ; Échap annule ; annonces en
+français), **et** une liste d'étapes sur chaque carte (indispensable sur
+mobile). Mise à jour optimiste, annulée si l'API refuse. « Perdue »
+demande confirmation et un motif facultatif. `/opportunities/[id]` : étape
+(boutons), informations éditables, historique. Carte « Opportunité » sur
+la fiche demande, « Opportunités » sur la fiche client (section 49).
+`TimelineCard` est désormais un composant partagé (`components/`).
+
+Piège rencontré : dans une zone à défilement horizontal, les textes
+`sr-only` (en `position: absolute`) des colonnes hors écran échappent au
+défilement si la zone n'est pas `relative` — toute la page s'élargissait
+sur mobile (trouvé par le contrôle « pas de défilement horizontal »).
+
+Tests : 2 unitaires (devise par pays) ; **10 e2e réels**
+(`opportunities.e2e-spec.ts`) — droits et validation, valeurs par défaut,
+modification, changement d'étape persistant et tracé une seule fois,
+gagnée / rouverte / perdue avec motif et notifications, Kanban (ordre,
+totaux, filtres), création automatique après une qualification manuelle
+et synchronisation du statut de la demande, matching sur demande non
+qualifiée sans opportunité — **7 passent ; les 3 de la chaîne complète via
+Claude attendent le crédit Anthropic**. Navigateur réel (Playwright + axe,
+serveurs de dev) : **39 contrôles, axe sans violation** — Kanban,
+glisser souris avec défilement automatique du pipeline, glisser clavier,
+annonce lecteur d'écran, Échap, liste d'étapes, dialogue de perte (confirmé
+et annulé), création, fiche (étape, édition, timeline), fiches demande et
+client, mobile 390 px (pas de débordement, changement d'étape), observateur
+en lecture seule.
+
+Prochaine étape : terminer le gate ci-dessus, puis **Phase 18 — Devis**
+(checkpoint utilisateur : mentions légales, TVA, numérotation, logo).
 
 ## Intégration des sites web (akoraweb) — demandes reçues par API
 

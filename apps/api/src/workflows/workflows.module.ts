@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConversationsModule } from "../conversations/conversations.module";
 import { EmailModule } from "../email/email.module";
 import { MatchingModule } from "../matching/matching.module";
+import { OpportunitiesModule } from "../opportunities/opportunities.module";
 import { QualificationAnalysisModule } from "../qualification-analysis/qualification-analysis.module";
 import { QualificationSessionsModule } from "../qualification-sessions/qualification-sessions.module";
 import { ServicesModule } from "../services/services.module";
@@ -20,6 +21,7 @@ import { WorkflowsService } from "./workflows.service";
     WhatsappModule,
     QualificationAnalysisModule,
     MatchingModule,
+    OpportunitiesModule,
   ],
   controllers: [WorkflowsController],
   providers: [WorkflowsService, WorkflowEngine, WorkflowActionsService],

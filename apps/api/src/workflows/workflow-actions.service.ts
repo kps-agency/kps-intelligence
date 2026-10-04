@@ -7,6 +7,7 @@ import {
 } from "../conversations/conversations.service";
 import { EmailService } from "../email/email.service";
 import { MatchingService } from "../matching/matching.service";
+import { OpportunitiesService } from "../opportunities/opportunities.service";
 import { QualificationAnalysisService } from "../qualification-analysis/qualification-analysis.service";
 import { AUTOMATION_ACTOR, EventBus } from "../events/event-bus.service";
 import { QualificationSessionsService } from "../qualification-sessions/qualification-sessions.service";
@@ -46,6 +47,7 @@ export class WorkflowActionsService {
     private readonly whatsappService: WhatsappService,
     private readonly qualificationAnalysis: QualificationAnalysisService,
     private readonly matching: MatchingService,
+    private readonly opportunities: OpportunitiesService,
   ) {}
 
   async execute(
@@ -75,6 +77,17 @@ export class WorkflowActionsService {
           detail: `${matching.candidates.length} collaborateur(s) classé(s).`,
         };
       }
+      case "CREATE_OPPORTUNITY": {
+        const { opportunity, created } = await this.opportunities.createFromRequest(
+          context.requestId,
+          AUTOMATION_ACTOR,
+        );
+        return created
+          ? { status: "DONE", detail: `Opportunité créée : ${opportunity.title}.` }
+          : { status: "SKIPPED", detail: "Une opportunité existe déjà pour cette demande." };
+      }
+      case "SYNC_REQUEST_STATUS":
+        return this.opportunities.syncRequestStatus(context.requestId);
       default:
         throw new Error(`Action inconnue : ${type}`);
     }

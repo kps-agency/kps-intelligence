@@ -38,11 +38,19 @@ event-driven, traçable, sécurisé.
    `Co-Authored-By`.
 8. `.env` n'est jamais commité ; `.env.example` sans aucune valeur secrète.
 
-## État d'avancement (au 29/09/2026)
+## État d'avancement (au 04/10/2026)
 
 Phases **0 à 16 terminées** et poussées sur `main`
 (`github.com/kps-agency/kps-intelligence`). Régression e2e : 13 suites,
 191/191. Tests unitaires : 54.
+
+**Depuis le 04/10/2026 le compte Anthropic n'a plus de crédit** : toute
+analyse Claude échoue. Décision utilisateur (05/10/2026) : continuer les
+développements sans Claude. Les phases sont commitées avec tout le gate
+vert **sauf** les tests e2e qui passent par Claude (29 sur 201 à la
+Phase 17) ; les fonctions qui exigent l'IA sont reportées. **Dès le
+crédit rétabli : relancer la régression e2e complète** et livrer les
+parties IA reportées (liste dans `docs/AI_CONTEXT.md`).
 
 | Phase | Contenu | État |
 |---|---|---|
@@ -57,8 +65,9 @@ Phases **0 à 16 terminées** et poussées sur `main`
 | 15 | Workflow Engine configurable + relances | ✅ |
 | — | Ingestion formulaires sites web (akoraweb), webhook signé | ✅ |
 | 16 | Analyse des réponses (section 40) + équipe + matching explicable | ✅ |
-| **17** | **Opportunités** | ⏭️ prochaine |
-| 18-25 | Devis, missions, documents, dashboard, i18n/RGPD, audit, tests, prod | à faire |
+| 17 | Opportunités (Kanban, création automatique après matching) | ✅ sauf tests e2e via Claude (crédit) |
+| 18 | Devis | ⏭️ prochaine |
+| 19-25 | Missions, documents, dashboard, i18n/RGPD, audit, tests, prod | à faire |
 
 ## Mise en route (environnement cloud)
 
@@ -102,6 +111,7 @@ toucher au `pnpm dev` de l'utilisateur.
 ```
 apps/api/src/
   events/          EventBus (emit → persiste dans `events` → handlers), timeline
+  opportunities/   pipeline commercial (Kanban), création depuis une demande
   workflows/       WorkflowEngine : workflows en base, vocabulaire fermé
                    (workflow-definition.ts), actions (workflow-actions.service.ts),
                    étapes différées BullMQ
@@ -132,6 +142,9 @@ supabase/migrations/      SQL horodaté, appliqué par `pnpm db:migrate`
 
 - **Ne jamais lancer `pnpm build` pendant `pnpm dev`** : `next build`
   écrase le `.next` partagé et casse le serveur de dev (chunks 404).
+  Pour vérifier le build web pendant un `pnpm dev` :
+  `NEXT_DIST_DIR=.next-verify` (dans `apps/web`), puis supprimer le
+  dossier et annuler les retouches de `tsconfig.json` / `next-env.d.ts`.
 - Enums TS string : un littéral n'est pas assignable à l'enum → utiliser
   `EnumName.VALUE` côté web/API.
 - Sélections Supabase typées : la chaîne de `select()` doit être **un
@@ -154,6 +167,15 @@ supabase/migrations/      SQL horodaté, appliqué par `pnpm db:migrate`
   vers un tiers), restaurer toute définition modifiée (workflows).
 - Emails automatiques (rebonds, absences) filtrés à l'ingestion
   (`isAutomated`).
+- `alter type ... add value` : une valeur d'enum n'est utilisable
+  qu'après le commit de sa transaction, et `pnpm db:migrate` ouvre une
+  transaction par fichier → migration séparée pour les valeurs, puis une
+  autre pour ce qui les utilise (workflows seedés).
+- Zone à défilement horizontal (Kanban) : la rendre `relative`, sinon
+  les textes `sr-only` qu'elle contient élargissent la page sur mobile.
+- Une demande entrante n'a souvent **pas de client** (`client_id` nul
+  tant que l'expéditeur n'est pas un contact connu) : tout objet créé
+  depuis une demande doit le supporter.
 - Plusieurs sessions Claude peuvent travailler dans le même dépôt :
   `git status` avant tout commit, ne committer que ses propres fichiers.
 
@@ -173,9 +195,10 @@ push.
 - Module `opportunities` : pipeline `NEW → QUALIFIED → PROPOSAL_REQUIRED
   → PROPOSAL_SENT → NEGOTIATION → WON / LOST` (table et enum existants),
   valeur estimée, probabilité, responsable, liens demande/client.
-- **Création automatique** : workflow livré sur `TEAM_MEMBER_ASSIGNED`
-  ou `MATCHING_COMPLETED` d'une demande qualifiée (à trancher, le
-  documenter) → action `CREATE_OPPORTUNITY` idempotente (une par demande).
+- **Création automatique** : workflow livré sur `MATCHING_COMPLETED`
+  d'une demande qualifiée (tranché le 04/10/2026, voir
+  `docs/WORKFLOWS.md`) → action `CREATE_OPPORTUNITY` idempotente (une
+  par demande).
 - Événements `OPPORTUNITY_CREATED`, `OPPORTUNITY_STAGE_CHANGED`,
   `OPPORTUNITY_WON`, `OPPORTUNITY_LOST` ; notifications commercial /
   responsable.

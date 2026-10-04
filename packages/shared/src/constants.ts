@@ -2,6 +2,7 @@ import {
   ClientStatus,
   FormFieldType,
   FormStatus,
+  OpportunityStatus,
   PriorityLevel,
   RequestIntent,
   RequestStatus,
@@ -67,6 +68,43 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   [RequestStatus.LOST]: "Perdue",
   [RequestStatus.CONVERTED_TO_MISSION]: "Convertie en mission",
   [RequestStatus.CLOSED]: "Clôturée",
+};
+
+/** Étapes du pipeline commercial, dans l'ordre des colonnes du Kanban (section 50). */
+export const OPPORTUNITY_PIPELINE: OpportunityStatus[] = [
+  OpportunityStatus.NEW,
+  OpportunityStatus.QUALIFIED,
+  OpportunityStatus.PROPOSAL_REQUIRED,
+  OpportunityStatus.PROPOSAL_SENT,
+  OpportunityStatus.NEGOTIATION,
+  OpportunityStatus.WON,
+  OpportunityStatus.LOST,
+];
+
+/** Libellés d'affichage des étapes d'une opportunité (section 50). */
+export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
+  [OpportunityStatus.NEW]: "Nouvelle",
+  [OpportunityStatus.QUALIFIED]: "Qualifiée",
+  [OpportunityStatus.PROPOSAL_REQUIRED]: "Devis à préparer",
+  [OpportunityStatus.PROPOSAL_SENT]: "Devis envoyé",
+  [OpportunityStatus.NEGOTIATION]: "Négociation",
+  [OpportunityStatus.WON]: "Gagnée",
+  [OpportunityStatus.LOST]: "Perdue",
+};
+
+/**
+ * Probabilité de gain (en %) appliquée quand une opportunité entre dans
+ * une étape ; elle reste ajustable à la main jusqu'au changement d'étape
+ * suivant.
+ */
+export const OPPORTUNITY_STAGE_PROBABILITY: Record<OpportunityStatus, number> = {
+  [OpportunityStatus.NEW]: 10,
+  [OpportunityStatus.QUALIFIED]: 25,
+  [OpportunityStatus.PROPOSAL_REQUIRED]: 40,
+  [OpportunityStatus.PROPOSAL_SENT]: 60,
+  [OpportunityStatus.NEGOTIATION]: 75,
+  [OpportunityStatus.WON]: 100,
+  [OpportunityStatus.LOST]: 0,
 };
 
 /** Libellés d'affichage des niveaux de priorité/urgence. */

@@ -15,6 +15,7 @@ import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
 import { MatchingModule } from "./matching/matching.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { OpportunitiesModule } from "./opportunities/opportunities.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
 import { QualificationAnalysisModule } from "./qualification-analysis/qualification-analysis.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
@@ -84,6 +85,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     WorkflowsModule,
     QualificationAnalysisModule,
     MatchingModule,
+    OpportunitiesModule,
     TeamModule,
     NotificationsModule,
     AuthModule,
