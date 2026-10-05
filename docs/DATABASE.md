@@ -759,6 +759,24 @@ utilisateur (changements de statut, création de devis, envoi, affectation
 
 ---
 
+## 13bis. Rapports : fonction `report_overview(p_from, p_to)` (Phase 21)
+
+Fonction SQL `stable` qui renvoie tous les agrégats du rapport en un
+`jsonb` (migration `20261005300001`) — une fonction plutôt que des vues,
+parce que la période est un paramètre. Deux familles de chiffres :
+
+- **sur la période** (demandes créées entre les deux dates, incluses,
+  jours au fuseau `Europe/Zurich`) : volume par jour, par service, canal
+  et pays, conversion, taux et délai de qualification ;
+- **état courant** : demandes à qualifier, opportunités ouvertes, missions
+  actives, répartition du pipeline et des missions.
+
+« Qualifiée » = la demande a un événement `REQUEST_QUALIFIED` (le premier
+fait foi pour le délai) : le statut courant ne suffit pas, il a pu avancer
+bien au-delà. Pays vide ou fait d'espaces = « Non renseigné ».
+
+---
+
 ## 14. Idempotence des jobs asynchrones
 
 Pas de table dédiée : chaque job BullMQ reçoit une `jobId` déterministe

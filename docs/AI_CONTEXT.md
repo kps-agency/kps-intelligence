@@ -1462,7 +1462,54 @@ effacé), client. Navigateur réel : **19 contrôles, axe sans violation**
 (dépôt, téléchargement, refus expliqué, suppression, pièce jointe d'une
 tâche, mobile avec nom très long, observateur).
 
-Prochaine étape : **Phase 21 — Dashboard & reports** (vues SQL, graphiques).
+
+## Phase 21 — Dashboard & reports (section 56)
+
+Aucune partie de cette phase ne dépend de Claude.
+
+- **Agrégats en SQL** : fonction `report_overview(p_from, p_to)` (détail
+  dans `docs/DATABASE.md` §13bis). L'API (`reports/`) ne fait que valider
+  la période et transmettre.
+- **Page `/reports`** : période (7 / 30 / 90 jours, 12 mois, ou dates
+  libres), huit indicateurs de la section 56 répartis en « Sur la
+  période » (demandes reçues dont aujourd'hui, qualifiées, taux et délai
+  moyen de qualification) et « En ce moment » (à qualifier, opportunités
+  ouvertes, missions actives, nouveaux prospects), puis sept graphiques :
+  demandes par jour (courbe Recharts), conversion, par canal, par service,
+  par pays, opportunités par étape, missions par statut.
+- **Choix de représentation** : une seule teinte (chaque graphique compare
+  une même mesure), valeurs écrites au bout des barres, segments droits
+  pour la courbe (une courbe lissée invente des valeurs entre deux jours),
+  barres horizontales en HTML pour tout ce qui a des libellés (en colonnes,
+  les sept étapes du pipeline se chevauchaient). Chaque graphique a son
+  tableau « Voir les données » ; une période sans demande le dit au lieu
+  d'afficher un graphique vide.
+- **Permission** `reports.read` : tous les rôles sauf collaborateur.
+- La page d'accueil (`/dashboard`) garde ses indicateurs opérationnels
+  (Phases 17-19) ; les rapports sont l'analyse sur une période.
+
+Tests : **4 e2e réels** (`reports.e2e-spec.ts`) sur une fenêtre passée
+isolée (mars 2019) peuplée directement en base — volumes, répartitions,
+conversion, délai (première qualification seulement), bornes incluses,
+découpage des jours au fuseau de Zurich (23 h 30 et 00 h 30), période
+vide ; **chiffres d'état courant recoupés avec des requêtes indépendantes**
+sur la base (DoD de la phase). Navigateur réel : **15 contrôles, axe sans
+violation** (indicateurs, graphiques, info-bulle, tableau de données,
+période vide, mobile avec un compte observateur).
+
+Limites connues : pas d'export (CSV / PDF) ; pas de comparaison avec la
+période précédente ; les valeurs en devises ne sont pas agrégées dans les
+rapports (plusieurs devises) — elles restent sur le Kanban et l'accueil.
+
+**Limite d'envoi Gmail atteinte le 05/10/2026** : le compte Gmail de test
+(aussi utilisé par l'application en dev) a renvoyé `550 5.4.5 Daily user
+sending limit exceeded` après les nombreuses exécutions de tests de la
+journée. Tant que le quota n'est pas revenu (environ 24 h), aucun email ne
+part : notifications, liens de qualification, devis. Les tests qui envoient
+un email échouent pour cette seule raison. Ne pas enchaîner plusieurs
+régressions complètes dans la même journée avec ce compte.
+
+Prochaine étape : **Phase 22 — i18n & RGPD**.
 
 ## Intégration des sites web (akoraweb) — demandes reçues par API
 

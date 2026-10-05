@@ -69,8 +69,9 @@ parties IA reportées (liste dans `docs/AI_CONTEXT.md`).
 | 18 | Devis (PDF, envoi email, versions, identité de l'entreprise) | ✅ sauf proposition par l'IA (crédit) |
 | 19 | Missions & tâches (création à l'opportunité gagnée, équipe, tâches, commentaires) | ✅ |
 | 20 | Documents (stockage privé, liens signés, pièces jointes des tâches) | ✅ sauf analyse IA d'un document (crédit) |
-| **21** | **Dashboard & reports** | ⏭️ prochaine (la page d'accueil affiche déjà indicateurs et listes) |
-| 22-25 | i18n/RGPD, audit, tests, prod | à faire |
+| 21 | Dashboard & reports (agrégats SQL, page Rapports, graphiques) | ✅ |
+| **22** | **i18n & RGPD** | ⏭️ prochaine |
+| 23-25 | Audit, tests, prod | à faire |
 
 ## Mise en route (environnement cloud)
 
@@ -184,6 +185,12 @@ supabase/migrations/      SQL horodaté, appliqué par `pnpm db:migrate`
   depuis une demande doit le supporter.
 - DTO `class-validator` : une fois instancié, il porte toutes ses
   propriétés (à `undefined`) — ne pas raisonner sur `Object.keys(dto)`.
+- **Quota d'envoi Gmail** : le compte de test plafonne (550 5.4.5) après
+  quelques régressions e2e complètes dans la journée, et l'application
+  en dev ne peut alors plus envoyer aucun email pendant ~24 h. Lancer
+  la régression complète une fois par phase, pas plus.
+- Test navigateur : attendre le rendu interactif avant de saisir (une
+  saisie faite avant l'hydratation est perdue).
 - Plusieurs sessions Claude peuvent travailler dans le même dépôt :
   `git status` avant tout commit, ne committer que ses propres fichiers.
 

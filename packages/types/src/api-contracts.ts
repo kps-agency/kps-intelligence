@@ -1026,6 +1026,46 @@ export interface DocumentDownloadResponse {
   expiresInSeconds: number;
 }
 
+// ---- Rapports (section 56) ----
+
+export interface ReportCount {
+  label: string;
+  count: number;
+}
+
+// Réponse de GET /reports/overview?from=&to= (dates incluses, jours au
+// fuseau de l'agence). « Période » = demandes créées dans l'intervalle ;
+// les autres chiffres décrivent l'état courant.
+export interface ReportOverviewResponse {
+  from: string;
+  to: string;
+  kpis: {
+    requestsToday: number;
+    requestsInPeriod: number;
+    // Clients au statut prospect créés sur la période.
+    newProspects: number;
+    // État courant : demandes pas encore qualifiées ni écartées.
+    toQualify: number;
+    qualifiedInPeriod: number;
+    openOpportunities: number;
+    activeMissions: number;
+    // Entre 0 et 1 ; `null` sans demande sur la période.
+    qualificationRate: number | null;
+    // De la réception à la qualification ; `null` si aucune n'est qualifiée.
+    avgHoursToQualify: number | null;
+  };
+  requestsByDay: { date: string; count: number }[];
+  requestsByService: ReportCount[];
+  // `label` = RequestSource.
+  requestsBySource: ReportCount[];
+  requestsByCountry: ReportCount[];
+  // Demandes de la période, et combien ont atteint chaque étape.
+  funnel: { requests: number; qualified: number; opportunities: number; won: number };
+  // `label` = OpportunityStatus / MissionStatus ; étapes vides absentes.
+  opportunitiesByStage: ReportCount[];
+  missionsByStatus: ReportCount[];
+}
+
 // ---- Workflow Engine (sections 39, 45, 46) ----
 
 export type WorkflowConditionOperator =

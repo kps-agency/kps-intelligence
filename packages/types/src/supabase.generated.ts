@@ -2087,6 +2087,7 @@ export type Database = {
         Args: { p_skills: Json; p_user_id: string }
         Returns: undefined
       }
+      report_overview: { Args: { p_from: string; p_to: string }; Returns: Json }
       save_quote_content: {
         Args: { p_items: Json; p_quote: Json; p_quote_id: string }
         Returns: undefined

@@ -23,6 +23,7 @@ import { WorkflowsModule } from "./workflows/workflows.module";
 import { QualificationAnalysisModule } from "./qualification-analysis/qualification-analysis.module";
 import { QuotesModule } from "./quotes/quotes.module";
 import { QualificationSessionsModule } from "./qualification-sessions/qualification-sessions.module";
+import { ReportsModule } from "./reports/reports.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RolesModule } from "./roles/roles.module";
 import { ServicesModule } from "./services/services.module";
@@ -94,6 +95,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     QuotesModule,
     MissionsModule,
     DocumentsModule,
+    ReportsModule,
     TeamModule,
     NotificationsModule,
     AuthModule,

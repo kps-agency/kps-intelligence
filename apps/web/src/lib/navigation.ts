@@ -133,7 +133,13 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Analyse",
     items: [
-      { label: "Rapports", href: "/reports", icon: BarChart3, available: false, phase: 21 },
+      {
+        label: "Rapports",
+        href: "/reports",
+        icon: BarChart3,
+        available: true,
+        requiredPermission: "reports.read",
+      },
     ],
   },
   {
