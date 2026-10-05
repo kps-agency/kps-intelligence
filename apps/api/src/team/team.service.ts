@@ -1,9 +1,11 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   AvailabilityStatus,
+  MissionStatus,
   RequestStatus,
   SkillResponse,
   TeamMemberDetailResponse,
+  TeamMemberMissionItem,
   TeamMemberResponse,
 } from "@kps/types";
 import { toDbException } from "../common/db-error";
@@ -114,8 +116,50 @@ export class TeamService {
       .order("created_at", { ascending: false });
     if (historyError) throw toDbException(historyError);
 
+    const [{ data: memberships, error: membershipsError }, { data: managed, error: managedError }] =
+      await Promise.all([
+        client
+          .from("mission_members")
+          .select("role_on_mission, missions(id, title, status, created_at, clients(company_name))")
+          .eq("user_id", id),
+        client
+          .from("missions")
+          .select("id, title, status, created_at, clients(company_name)")
+          .eq("project_manager_id", id),
+      ]);
+    if (membershipsError) throw toDbException(membershipsError);
+    if (managedError) throw toDbException(managedError);
+
+    type MissionLink = {
+      id: string;
+      title: string;
+      status: string;
+      created_at: string;
+      clients: { company_name: string } | null;
+    };
+    const missions = new Map<string, TeamMemberMissionItem & { createdAt: string }>();
+    const addMission = (mission: MissionLink, role: string | null, isProjectManager: boolean) => {
+      const existing = missions.get(mission.id);
+      missions.set(mission.id, {
+        missionId: mission.id,
+        title: mission.title,
+        status: mission.status as MissionStatus,
+        clientCompanyName: mission.clients?.company_name ?? null,
+        roleOnMission: role ?? existing?.roleOnMission ?? null,
+        isProjectManager: isProjectManager || (existing?.isProjectManager ?? false),
+        createdAt: mission.created_at,
+      });
+    };
+    for (const m of memberships) {
+      if (m.missions) addMission(m.missions as unknown as MissionLink, m.role_on_mission, false);
+    }
+    for (const m of managed) addMission(m as unknown as MissionLink, null, true);
+
     return {
       ...toMember(data as unknown as MemberRow),
+      missions: [...missions.values()]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(({ createdAt: _createdAt, ...mission }) => mission),
       history: history
         .filter((h) => h.requests)
         .map((h) => {

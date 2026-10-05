@@ -49,6 +49,7 @@ const DEFAULT_LANGUAGE = "fr";
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
 const AUDIENCE_ROLES: Record<Exclude<Audience, "ASSIGNEE" | "TEAM_MEMBER">, string[]> = {
   COMMERCIAL: ["SALES"],
+  PROJECT_MANAGER: ["PROJECT_MANAGER"],
   RESPONSABLE: ["DIRECTOR"],
   TECHNICAL_MANAGER: ["TECHNICAL_MANAGER"],
 };
@@ -85,10 +86,12 @@ export class NotificationsDispatcher implements OnModuleInit {
   }
 
   async dispatch(event: DomainEvent): Promise<void> {
-    // Opportunités et devis portent leurs propres notifications (ils
-    // peuvent ne pas avoir de demande d'origine).
+    // Opportunités, devis et missions portent leurs propres notifications
+    // (ils peuvent ne pas avoir de demande d'origine).
     const ownSubject =
-      event.entityType === EventEntityType.OPPORTUNITY || event.entityType === EventEntityType.QUOTE;
+      event.entityType === EventEntityType.OPPORTUNITY ||
+      event.entityType === EventEntityType.QUOTE ||
+      event.entityType === EventEntityType.MISSION;
     if (!ownSubject && !event.requestId) return;
 
     // Les destinataires sont figés au premier traitement de l'événement.
@@ -109,7 +112,9 @@ export class NotificationsDispatcher implements OnModuleInit {
         ? await this.loadOpportunity(event.entityId)
         : event.entityType === EventEntityType.QUOTE
           ? await this.loadQuote(event.entityId)
-          : await this.loadRequest(event.requestId as string);
+          : event.entityType === EventEntityType.MISSION
+            ? await this.loadMission(event.entityId)
+            : await this.loadRequest(event.requestId as string);
     if (!request) return;
 
     const rules = NOTIFICATION_RULES.filter(
@@ -232,7 +237,9 @@ export class NotificationsDispatcher implements OnModuleInit {
       return assigneeId ? this.activeUsers({ ids: [assigneeId] }) : [];
     }
 
-    if (audience === "COMMERCIAL" && request.assignedUserId) {
+    // Le responsable désigné de l'objet (commercial de la demande ou de
+    // l'opportunité, chef de projet de la mission) passe avant le rôle.
+    if ((audience === "COMMERCIAL" || audience === "PROJECT_MANAGER") && request.assignedUserId) {
       const assigned = await this.activeUsers({ ids: [request.assignedUserId] });
       if (assigned.length > 0) return assigned;
     }
@@ -317,6 +324,33 @@ export class NotificationsDispatcher implements OnModuleInit {
       assignedUserId: data.assigned_user_id,
       path: `/requests/${data.id}`,
       clientName: "—",
+      valueSuffix: "",
+    };
+  }
+
+  private async loadMission(missionId: string): Promise<SubjectContext | null> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("missions")
+      .select("id, title, project_manager_id, clients(company_name), opportunities(request_id, requests(reference, source))")
+      .eq("id", missionId)
+      .maybeSingle();
+    if (error) throw toDbException(error);
+    if (!data) return null;
+    const opportunity = data.opportunities as {
+      request_id: string | null;
+      requests: { reference: string; source: string } | null;
+    } | null;
+    return {
+      entityType: EventEntityType.MISSION,
+      entityId: data.id,
+      requestId: opportunity?.request_id ?? null,
+      reference: opportunity?.requests?.reference ?? "",
+      subject: data.title,
+      source: opportunity?.requests?.source ?? "MANUAL",
+      assignedUserId: data.project_manager_id,
+      path: `/missions/${data.id}`,
+      clientName: (data.clients as { company_name: string } | null)?.company_name ?? NO_CLIENT,
       valueSuffix: "",
     };
   }
@@ -415,6 +449,11 @@ export class NotificationsDispatcher implements OnModuleInit {
       valueSuffix: request.valueSuffix,
       stage: stageLabel(payload.to),
       fromStage: stageLabel(payload.from),
+      taskTitle: typeof payload.taskTitle === "string" ? payload.taskTitle : "—",
+      dueSuffix:
+        typeof payload.dueDate === "string"
+          ? `, à rendre pour le ${payload.dueDate.slice(8, 10)}.${payload.dueDate.slice(5, 7)}.${payload.dueDate.slice(0, 4)}`
+          : "",
       reasonSuffix: typeof payload.reason === "string" && payload.reason ? ` : ${payload.reason}` : "",
       lostReasonSuffix:
         typeof payload.lostReason === "string" && payload.lostReason ? ` : ${payload.lostReason}` : "",

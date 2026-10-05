@@ -37,6 +37,8 @@ Slack / Teams : prévus plus tard (section 5), hors V1.
 | Responsable | Rôle `DIRECTOR` |
 | Responsable technique | Rôle `TECHNICAL_MANAGER` |
 | Assigné | La personne à qui la demande vient d'être confiée |
+| Chef de projet | Le chef de projet de la mission s'il est désigné, sinon **tous les chefs de projet actifs** (rôle `PROJECT_MANAGER`) |
+| Collaborateur concerné | La personne désignée par l'événement : affectée à une demande, ajoutée à une mission, chargée d'une tâche |
 
 Si personne n'a le rôle visé, les **administrateurs** (`ADMIN`,
 `SUPER_ADMIN`) reçoivent à sa place : une étape n'est jamais notifiée à
@@ -69,11 +71,16 @@ Une demande ne peut être assignée qu'à un utilisateur actif dont le rôle a
 | `QUOTE_SENT` | Devis envoyé | Commercial + Responsable | In-app | Moyenne |
 | `QUOTE_ACCEPTED` | Devis accepté | Commercial + Responsable | In-app + email | Haute |
 | `QUOTE_REJECTED` | Devis refusé | Commercial + Responsable | In-app | Haute |
+| `MISSION_CREATED` | Nouvelle mission | Chef de projet + Responsable | In-app + email | Haute |
+| `MISSION_ASSIGNED` | Ajout à une mission, ou désignation comme chef de projet (critique) | Collaborateur concerné | In-app + email | Haute |
+| `MISSION_BLOCKED` | Mission bloquée (critique) | Chef de projet + Responsable | In-app + email | Haute |
+| `TASK_ASSIGNED` | Tâche qui m'est confiée | Collaborateur concerné | In-app | Moyenne |
 
 `QUALIFICATION_REQUIRED` n'est notifié que pour une demande saisie à la
 main : une demande entrante (email/WhatsApp) reçoit le lien
-automatiquement, il n'y a rien à faire. Les règles des missions
-(section 5) s'ajouteront avec la Phase 19. Pour un devis, « Commercial »
+automatiquement, il n'y a rien à faire. Une notification de mission
+pointe vers `/missions/:id` (variables propres : `taskTitle`,
+`dueSuffix`). Pour un devis, « Commercial »
 = le responsable de son opportunité ; la notification pointe vers
 `/quotes/:id` (variables : `reference`, `title`, `clientName`,
 `valueSuffix` = total TTC, `reasonSuffix`).

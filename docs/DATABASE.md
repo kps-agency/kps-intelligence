@@ -597,7 +597,8 @@ courante.
 ```text
 missions
   id                uuid pk
-  opportunity_id      uuid fk -> opportunities(id) on delete set null
+  opportunity_id      uuid fk -> opportunities(id) on delete cascade   -- unique si non nul
+  title               text not null
   client_id            uuid fk -> clients(id) on delete restrict not null
   service_id            uuid fk -> services(id) on delete set null
   project_manager_id     uuid fk -> users(id) on delete set null
@@ -641,6 +642,21 @@ task_comments
   body              text not null
   created_at          timestamptz
 ```
+
+---
+
+Compléments de la Phase 19 (migrations `20261005100001` à `…100003`) :
+- `missions` : `title`, `currency`, `blocked_reason`, `completed_at` ;
+  **`client_id` nullable** (une opportunité peut être gagnée sans fiche
+  client) ; index unique partiel sur `opportunity_id` (une mission par
+  opportunité — idempotence de la création automatique) ; `opportunity_id`
+  en cascade (même choix qu'en Phase 17).
+- `tasks` : `created_by`, `completed_at` (posé au passage à `DONE`).
+- Avancement d'une mission = tâches `DONE` / tâches non `CANCELLED`,
+  calculé à la lecture.
+- Retirer un membre libère ses tâches non terminées (`assignee_id` nul).
+- Pièces jointes des tâches (section 53) : à livrer avec la Phase 20
+  (`documents`, association polymorphe).
 
 ---
 

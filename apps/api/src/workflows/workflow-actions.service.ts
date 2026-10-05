@@ -8,6 +8,7 @@ import {
 } from "../conversations/conversations.service";
 import { EmailService } from "../email/email.service";
 import { MatchingService } from "../matching/matching.service";
+import { MissionsService } from "../missions/missions.service";
 import { OpportunitiesService } from "../opportunities/opportunities.service";
 import { QualificationAnalysisService } from "../qualification-analysis/qualification-analysis.service";
 import { AUTOMATION_ACTOR, EventBus } from "../events/event-bus.service";
@@ -56,6 +57,7 @@ export class WorkflowActionsService {
     private readonly qualificationAnalysis: QualificationAnalysisService,
     private readonly matching: MatchingService,
     private readonly opportunities: OpportunitiesService,
+    private readonly missions: MissionsService,
   ) {}
 
   async execute(
@@ -66,6 +68,7 @@ export class WorkflowActionsService {
     if (type === "SET_OPPORTUNITY_STAGE") {
       return this.setOpportunityStage(context, params.stage as OpportunityStatus);
     }
+    if (type === "CREATE_MISSION") return this.createMission(context);
     // Toutes les autres actions portent sur une demande.
     const requestId = context.requestId;
     if (!requestId) return { status: "SKIPPED", detail: "Aucune demande concernée." };
@@ -108,11 +111,23 @@ export class WorkflowActionsService {
           ? { status: "DONE", detail: `Opportunité créée : ${opportunity.title}.` }
           : { status: "SKIPPED", detail: "Une opportunité existe déjà pour cette demande." };
       }
+      case "MARK_REQUEST_CONVERTED":
+        return this.missions.markRequestConverted(context.requestId);
       case "SYNC_REQUEST_STATUS":
         return this.opportunities.syncRequestStatus(context.requestId);
       default:
         throw new Error(`Action inconnue : ${type}`);
     }
+  }
+
+  private async createMission(context: ActionContext): Promise<ActionResult> {
+    if (context.subjectType !== EventEntityType.OPPORTUNITY || !context.subjectId) {
+      return { status: "SKIPPED", detail: "Aucune opportunité concernée." };
+    }
+    const { mission, created } = await this.missions.createFromOpportunity(context.subjectId, AUTOMATION_ACTOR);
+    return created
+      ? { status: "DONE", detail: `Mission créée : ${mission.title}.` }
+      : { status: "SKIPPED", detail: "Une mission existe déjà pour cette opportunité." };
   }
 
   private async setOpportunityStage(

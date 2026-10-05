@@ -2,12 +2,14 @@ import {
   ClientStatus,
   FormFieldType,
   FormStatus,
+  MissionStatus,
   OpportunityStatus,
   PriorityLevel,
   QuoteStatus,
   RequestIntent,
   RequestStatus,
   ServiceStatus,
+  TaskStatus,
   UserRole,
 } from "@kps/types";
 
@@ -144,6 +146,25 @@ export function computeQuoteTotals(
   const taxAmount = roundMoney(((subtotal - discount) * taxRate) / 100);
   return { lineTotals, subtotal, discount, taxAmount, total: roundMoney(subtotal - discount + taxAmount) };
 }
+
+/** Libellés d'affichage des statuts de mission (section 52). */
+export const MISSION_STATUS_LABELS: Record<MissionStatus, string> = {
+  [MissionStatus.PLANNED]: "Planifiée",
+  [MissionStatus.IN_PROGRESS]: "En cours",
+  [MissionStatus.BLOCKED]: "Bloquée",
+  [MissionStatus.ON_HOLD]: "En pause",
+  [MissionStatus.COMPLETED]: "Terminée",
+  [MissionStatus.CANCELLED]: "Annulée",
+};
+
+/** Libellés d'affichage des statuts de tâche (section 53). */
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  [TaskStatus.TODO]: "À faire",
+  [TaskStatus.IN_PROGRESS]: "En cours",
+  [TaskStatus.BLOCKED]: "Bloquée",
+  [TaskStatus.DONE]: "Terminée",
+  [TaskStatus.CANCELLED]: "Annulée",
+};
 
 /** Libellés d'affichage des niveaux de priorité/urgence. */
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {

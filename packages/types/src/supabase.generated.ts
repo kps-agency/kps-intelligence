@@ -813,9 +813,12 @@ export type Database = {
       }
       missions: {
         Row: {
+          blocked_reason: string | null
           budget: number | null
-          client_id: string
+          client_id: string | null
+          completed_at: string | null
           created_at: string
+          currency: string | null
           description: string | null
           end_date: string | null
           id: string
@@ -825,12 +828,16 @@ export type Database = {
           service_id: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["mission_status"]
+          title: string
           updated_at: string
         }
         Insert: {
+          blocked_reason?: string | null
           budget?: number | null
-          client_id: string
+          client_id?: string | null
+          completed_at?: string | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -840,12 +847,16 @@ export type Database = {
           service_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["mission_status"]
+          title: string
           updated_at?: string
         }
         Update: {
+          blocked_reason?: string | null
           budget?: number | null
-          client_id?: string
+          client_id?: string | null
+          completed_at?: string | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -855,6 +866,7 @@ export type Database = {
           service_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["mission_status"]
+          title?: string
           updated_at?: string
         }
         Relationships: [
@@ -1746,7 +1758,9 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          completed_at: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           due_date: string | null
           id: string
@@ -1758,7 +1772,9 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          completed_at?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
@@ -1770,7 +1786,9 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          completed_at?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
@@ -1784,6 +1802,13 @@ export type Database = {
           {
             foreignKeyName: "tasks_assignee_id_fkey"
             columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -2123,6 +2148,10 @@ export type Database = {
         | "OPPORTUNITY_WON"
         | "OPPORTUNITY_LOST"
         | "QUOTE_REVISED"
+        | "TASK_CREATED"
+        | "TASK_ASSIGNED"
+        | "TASK_STATUS_CHANGED"
+        | "MISSION_MEMBER_REMOVED"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2387,6 +2416,10 @@ export const Constants = {
         "OPPORTUNITY_WON",
         "OPPORTUNITY_LOST",
         "QUOTE_REVISED",
+        "TASK_CREATED",
+        "TASK_ASSIGNED",
+        "TASK_STATUS_CHANGED",
+        "MISSION_MEMBER_REMOVED",
       ],
       form_field_type: [
         "TEXT",

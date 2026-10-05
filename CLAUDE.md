@@ -67,8 +67,9 @@ parties IA reportées (liste dans `docs/AI_CONTEXT.md`).
 | 16 | Analyse des réponses (section 40) + équipe + matching explicable | ✅ |
 | 17 | Opportunités (Kanban, création automatique après matching) | ✅ sauf tests e2e via Claude (crédit) |
 | 18 | Devis (PDF, envoi email, versions, identité de l'entreprise) | ✅ sauf proposition par l'IA (crédit) |
-| **19** | **Missions & tâches** | ⏭️ prochaine |
-| 20-25 | Documents, dashboard, i18n/RGPD, audit, tests, prod | à faire |
+| 19 | Missions & tâches (création à l'opportunité gagnée, équipe, tâches, commentaires) | ✅ |
+| **20** | **Documents** | ⏭️ prochaine |
+| 21-25 | Dashboard, i18n/RGPD, audit, tests, prod | à faire |
 
 ## Mise en route (environnement cloud)
 
@@ -114,6 +115,7 @@ apps/api/src/
   events/          EventBus (emit → persiste dans `events` → handlers), timeline
   opportunities/   pipeline commercial (Kanban), création depuis une demande
   quotes/ company/ devis (totaux serveur, PDF pdfkit, versions) ; identité de l'entreprise
+  missions/        missions, équipe, tâches et commentaires
   workflows/       WorkflowEngine : workflows en base, vocabulaire fermé
                    (workflow-definition.ts), actions (workflow-actions.service.ts),
                    étapes différées BullMQ
@@ -178,6 +180,8 @@ supabase/migrations/      SQL horodaté, appliqué par `pnpm db:migrate`
 - Une demande entrante n'a souvent **pas de client** (`client_id` nul
   tant que l'expéditeur n'est pas un contact connu) : tout objet créé
   depuis une demande doit le supporter.
+- DTO `class-validator` : une fois instancié, il porte toutes ses
+  propriétés (à `undefined`) — ne pas raisonner sur `Object.keys(dto)`.
 - Plusieurs sessions Claude peuvent travailler dans le même dépôt :
   `git status` avant tout commit, ne committer que ses propres fichiers.
 

@@ -14,8 +14,11 @@ export type Audience =
   | "RESPONSABLE"
   | "TECHNICAL_MANAGER"
   | "ASSIGNEE"
-  // Collaborateur affecté à la demande (payload.userId de l'événement).
-  | "TEAM_MEMBER";
+  // Collaborateur concerné (payload.userId de l'événement) : affecté à
+  // une demande, ajouté à une mission, chargé d'une tâche.
+  | "TEAM_MEMBER"
+  // Chef de projet de la mission, sinon tous les chefs de projet actifs.
+  | "PROJECT_MANAGER";
 
 export type RuleChannel = "IN_APP" | "EMAIL";
 
@@ -205,6 +208,40 @@ export const NOTIFICATION_RULES: NotificationRule[] = [
     audiences: ["COMMERCIAL", "RESPONSABLE"],
     channels: ["IN_APP"],
     priority: PriorityLevel.HIGH,
+  },
+  {
+    key: "MISSION_CREATED",
+    eventType: EventType.MISSION_CREATED,
+    label: "Nouvelle mission",
+    audiences: ["PROJECT_MANAGER", "RESPONSABLE"],
+    channels: ["IN_APP", "EMAIL"],
+    priority: PriorityLevel.HIGH,
+  },
+  {
+    key: "MISSION_ASSIGNED",
+    eventType: EventType.MISSION_ASSIGNED,
+    label: "Ajout à une mission",
+    audiences: ["TEAM_MEMBER"],
+    channels: ["IN_APP", "EMAIL"],
+    priority: PriorityLevel.HIGH,
+    critical: true,
+  },
+  {
+    key: "MISSION_BLOCKED",
+    eventType: EventType.MISSION_BLOCKED,
+    label: "Mission bloquée",
+    audiences: ["PROJECT_MANAGER", "RESPONSABLE"],
+    channels: ["IN_APP", "EMAIL"],
+    priority: PriorityLevel.HIGH,
+    critical: true,
+  },
+  {
+    key: "TASK_ASSIGNED",
+    eventType: EventType.TASK_ASSIGNED,
+    label: "Tâche qui m'est confiée",
+    audiences: ["TEAM_MEMBER"],
+    channels: ["IN_APP"],
+    priority: PriorityLevel.MEDIUM,
   },
   {
     key: "CONVERSATION_MESSAGE_RECEIVED",

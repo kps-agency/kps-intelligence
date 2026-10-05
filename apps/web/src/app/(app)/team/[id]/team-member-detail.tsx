@@ -1,6 +1,6 @@
 "use client";
 
-import { REQUEST_STATUS_LABELS } from "@kps/shared";
+import { MISSION_STATUS_LABELS, REQUEST_STATUS_LABELS } from "@kps/shared";
 import { AvailabilityStatus, type TeamMemberDetailResponse } from "@kps/types";
 import {
   Badge,
@@ -424,6 +424,34 @@ export function TeamMemberDetail({ memberId }: { memberId: string }) {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Missions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.missions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune mission pour l&apos;instant.</p>
+          ) : (
+            <ul className="flex flex-col divide-y text-sm">
+              {data.missions.map((m) => (
+                <li key={m.missionId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>
+                    <Link href={`/missions/${m.missionId}`} className="text-primary underline-offset-4 hover:underline">
+                      {m.title}
+                    </Link>
+                    {m.clientCompanyName && <span className="text-muted-foreground"> — {m.clientCompanyName}</span>}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {m.isProjectManager ? "Chef de projet" : (m.roleOnMission ?? "Membre de l'équipe")} ·{" "}
+                    {MISSION_STATUS_LABELS[m.status]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

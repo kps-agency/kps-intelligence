@@ -8,6 +8,7 @@ import type {
   EventType,
   FormFieldType,
   FormStatus,
+  MissionStatus,
   NotificationChannel,
   OpportunityStatus,
   PriorityLevel,
@@ -19,6 +20,7 @@ import type {
   RequestStatus,
   ServiceSlug,
   ServiceStatus,
+  TaskStatus,
   UserRole,
   WorkflowRunStatus,
 } from "./enums";
@@ -603,8 +605,20 @@ export interface TeamMemberHistoryItem {
   assignedAt: string;
 }
 
+// Missions du collaborateur (Phase 19) : celles dont il est membre ou
+// chef de projet.
+export interface TeamMemberMissionItem {
+  missionId: string;
+  title: string;
+  status: MissionStatus;
+  clientCompanyName: string | null;
+  roleOnMission: string | null;
+  isProjectManager: boolean;
+}
+
 export interface TeamMemberDetailResponse extends TeamMemberResponse {
   history: TeamMemberHistoryItem[];
+  missions: TeamMemberMissionItem[];
 }
 
 export interface UpdateTeamProfileRequest {
@@ -860,6 +874,126 @@ export interface CompanySettingsResponse {
 }
 
 export type UpdateCompanySettingsRequest = Omit<CompanySettingsResponse, "updatedAt">;
+
+// ---- Missions & tâches (sections 52-53) ----
+
+export interface MissionMemberResponse {
+  userId: string;
+  fullName: string;
+  roleOnMission: string | null;
+}
+
+export interface MissionListItemResponse {
+  id: string;
+  title: string;
+  status: MissionStatus;
+  priority: PriorityLevel | null;
+  clientId: string | null;
+  clientCompanyName: string | null;
+  opportunityId: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
+  projectManagerId: string | null;
+  projectManagerName: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  budget: number | null;
+  currency: string | null;
+  // Avancement : tâches terminées / tâches non annulées.
+  tasksDone: number;
+  tasksTotal: number;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MissionResponse extends MissionListItemResponse {
+  description: string | null;
+  blockedReason: string | null;
+  completedAt: string | null;
+  requestId: string | null;
+  requestReference: string | null;
+  members: MissionMemberResponse[];
+}
+
+// Corps de POST /missions. Avec `opportunityId`, la mission est créée
+// depuis l'opportunité (idempotent) et les autres champs sont ignorés.
+export interface CreateMissionRequest {
+  opportunityId?: string;
+  title?: string;
+  clientId?: string | null;
+  serviceId?: string | null;
+  projectManagerId?: string | null;
+  description?: string | null;
+}
+
+// Corps de PATCH /missions/:id. `null` efface le champ.
+export interface UpdateMissionRequest {
+  title?: string;
+  description?: string | null;
+  clientId?: string | null;
+  serviceId?: string | null;
+  projectManagerId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  priority?: PriorityLevel;
+  budget?: number | null;
+  currency?: string | null;
+}
+
+// Corps de PATCH /missions/:id/status. `reason` pour BLOCKED.
+export interface ChangeMissionStatusRequest {
+  status: MissionStatus;
+  reason?: string | null;
+}
+
+export interface AddMissionMemberRequest {
+  userId: string;
+  roleOnMission?: string | null;
+}
+
+export interface TaskResponse {
+  id: string;
+  missionId: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: PriorityLevel | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  commentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskRequest {
+  title: string;
+  description?: string | null;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+  priority?: PriorityLevel;
+}
+
+// Corps de PATCH /tasks/:id. Le responsable d'une tâche (sans
+// missions.manage) ne peut en changer que le statut.
+export interface UpdateTaskRequest {
+  title?: string;
+  description?: string | null;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+  priority?: PriorityLevel;
+  status?: TaskStatus;
+}
+
+export interface TaskCommentResponse {
+  id: string;
+  authorId: string | null;
+  authorName: string | null;
+  body: string;
+  createdAt: string;
+}
 
 // ---- Workflow Engine (sections 39, 45, 46) ----
 

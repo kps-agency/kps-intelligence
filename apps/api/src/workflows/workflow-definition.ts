@@ -55,6 +55,8 @@ export const ACTION_TYPES: Record<
     label: "Faire avancer l'opportunité du devis",
     params: { stage: ["PROPOSAL_REQUIRED", "PROPOSAL_SENT", "NEGOTIATION", "WON"] },
   },
+  CREATE_MISSION: { label: "Créer la mission de l'opportunité gagnée", params: {} },
+  MARK_REQUEST_CONVERTED: { label: "Passer la demande à « Convertie en mission »", params: {} },
   SYNC_REQUEST_STATUS: {
     label: "Aligner le statut de la demande sur l'étape de l'opportunité",
     params: {},

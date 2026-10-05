@@ -24,6 +24,7 @@ export const EVENT_LABELS: Record<string, string> = {
   QUOTE_SENT: "Devis envoyé",
   QUOTE_ACCEPTED: "Devis accepté",
   QUOTE_REJECTED: "Devis refusé",
+  MISSION_CREATED: "Mission créée",
 };
 
 export const OPERATOR_LABELS: Record<WorkflowConditionOperator, string> = {

@@ -1,10 +1,17 @@
 "use client";
 
-import { OPPORTUNITY_STATUS_LABELS, REQUEST_STATUS_LABELS } from "@kps/shared";
+import {
+  MISSION_STATUS_LABELS,
+  OPPORTUNITY_STATUS_LABELS,
+  REQUEST_STATUS_LABELS,
+  TASK_STATUS_LABELS,
+} from "@kps/shared";
 import type {
   EventActorType,
+  MissionStatus,
   OpportunityStatus,
   RequestStatus,
+  TaskStatus,
   TimelineEventResponse,
 } from "@kps/types";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kps/ui";
@@ -144,6 +151,28 @@ function describe(event: TimelineEventResponse): string {
       return text(p.reason)
         ? `Devis ${text(p.reference)} refusé : ${text(p.reason)}`
         : `Devis ${text(p.reference)} refusé par le client`;
+    case "MISSION_CREATED":
+      return `Mission créée : ${text(p.title)}`;
+    case "MISSION_ASSIGNED":
+      return p.projectManager
+        ? `${text(p.userName)} désigné(e) chef de projet`
+        : `${text(p.userName)} ajouté(e) à l'équipe de la mission`;
+    case "MISSION_MEMBER_REMOVED":
+      return `${text(p.userName)} retiré(e) de l'équipe de la mission`;
+    case "MISSION_STATUS_CHANGED":
+      return `Mission : ${MISSION_STATUS_LABELS[p.from as MissionStatus] ?? text(p.from)} → ${
+        MISSION_STATUS_LABELS[p.to as MissionStatus] ?? text(p.to)
+      }`;
+    case "MISSION_BLOCKED":
+      return text(p.reason) ? `Mission bloquée : ${text(p.reason)}` : "Mission bloquée";
+    case "TASK_CREATED":
+      return `Tâche créée : ${text(p.taskTitle)}`;
+    case "TASK_ASSIGNED":
+      return `Tâche « ${text(p.taskTitle)} » confiée à ${text(p.userName)}`;
+    case "TASK_STATUS_CHANGED":
+      return `Tâche « ${text(p.taskTitle)} » : ${TASK_STATUS_LABELS[p.from as TaskStatus] ?? text(p.from)} → ${
+        TASK_STATUS_LABELS[p.to as TaskStatus] ?? text(p.to)
+      }`;
     case "REQUEST_ASSIGNED":
       return `Demande assignée à ${text(p.assignedUserName) || "un utilisateur"}`;
     case "TEAM_NOTIFIED":

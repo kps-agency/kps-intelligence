@@ -157,6 +157,14 @@ export enum MissionStatus {
   CANCELLED = "CANCELLED",
 }
 
+export enum TaskStatus {
+  TODO = "TODO",
+  IN_PROGRESS = "IN_PROGRESS",
+  BLOCKED = "BLOCKED",
+  DONE = "DONE",
+  CANCELLED = "CANCELLED",
+}
+
 export enum FormStatus {
   DRAFT = "DRAFT",
   PUBLISHED = "PUBLISHED",
@@ -253,6 +261,11 @@ export enum EventType {
   OPPORTUNITY_LOST = "OPPORTUNITY_LOST",
   // Ajout Phase 18 : un devis envoyé repasse en brouillon pour correction.
   QUOTE_REVISED = "QUOTE_REVISED",
+  // Ajouts Phase 19 (tâches d'une mission, section 53).
+  TASK_CREATED = "TASK_CREATED",
+  TASK_ASSIGNED = "TASK_ASSIGNED",
+  TASK_STATUS_CHANGED = "TASK_STATUS_CHANGED",
+  MISSION_MEMBER_REMOVED = "MISSION_MEMBER_REMOVED",
 }
 
 export enum WorkflowRunStatus {
@@ -270,4 +283,5 @@ export enum EventEntityType {
   CONVERSATION = "conversation",
   OPPORTUNITY = "opportunity",
   QUOTE = "quote",
+  MISSION = "mission",
 }

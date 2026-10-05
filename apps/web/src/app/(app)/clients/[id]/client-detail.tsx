@@ -2,6 +2,7 @@
 
 import { Card, CardContent, Skeleton } from "@kps/ui";
 import Link from "next/link";
+import { MissionsCard } from "@/components/missions-card";
 import { OpportunitiesCard } from "@/components/opportunities-card";
 import { QuotesCard } from "@/components/quotes-card";
 import { ApiError } from "@/lib/api-client";
@@ -63,6 +64,7 @@ export function ClientDetail({
       <ContactsPanel clientId={clientId} canManage={canManageContacts} />
       <OpportunitiesCard clientId={clientId} />
       <QuotesCard clientId={clientId} />
+      <MissionsCard clientId={clientId} />
     </div>
   );
 }

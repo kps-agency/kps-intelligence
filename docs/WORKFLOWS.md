@@ -52,6 +52,8 @@ satisfait que `notExists`.
 | `START_MATCHING` | Calcule le matching équipe de la demande (recommandation) |
 | `CREATE_OPPORTUNITY` | Crée l'opportunité de la demande (titre, client, service, responsable repris de la demande ; description = résumé de l'analyse Claude). Idempotent : une seule opportunité par demande (index unique sur `request_id`) |
 | `SET_OPPORTUNITY_STAGE` (`stage` = `PROPOSAL_REQUIRED` / `PROPOSAL_SENT` / `NEGOTIATION` / `WON`) | Fait avancer l'opportunité du devis concerné. Jamais en arrière, jamais sur une opportunité déjà gagnée ou perdue (tracé « ignoré »). Seule action qui ne porte pas sur une demande : elle fonctionne aussi pour un devis sans demande d'origine |
+| `CREATE_MISSION` | Crée la mission de l'opportunité gagnée (titre, client, service, budget = devis accepté HT sinon valeur estimée, équipe = collaborateurs affectés à la demande). Idempotent : une mission par opportunité |
+| `MARK_REQUEST_CONVERTED` | Passe la demande à « Convertie en mission » (sauf si déjà convertie ou clôturée) |
 | `SYNC_REQUEST_STATUS` | Aligne le statut de la demande sur l'étape de son opportunité : `PROPOSAL_REQUIRED` → `QUOTE_PENDING`, `PROPOSAL_SENT` → `QUOTE_SENT`, `NEGOTIATION`, `WON`, `LOST`. Sans effet aux étapes `NEW` / `QUALIFIED`, ni sur une demande déjà convertie en mission ou clôturée |
 
 ## Workflows livrés
@@ -65,6 +67,8 @@ satisfait que `notExists`.
 | `matching-on-qualified` | `REQUEST_QUALIFIED` | — | `START_MATCHING` |
 | `opportunity-on-matching` | `MATCHING_COMPLETED` | statut de la demande parmi `QUALIFIED`, `MATCHING`, `ASSIGNED` | `CREATE_OPPORTUNITY` |
 | `request-status-on-opportunity-stage` | `OPPORTUNITY_STAGE_CHANGED` | — | `SYNC_REQUEST_STATUS` |
+| `mission-on-opportunity-won` | `OPPORTUNITY_WON` | — | `CREATE_MISSION` |
+| `request-converted-on-mission-created` | `MISSION_CREATED` | — | `MARK_REQUEST_CONVERTED` |
 | `opportunity-stage-on-quote-created` | `QUOTE_CREATED` | — | `SET_OPPORTUNITY_STAGE` → `PROPOSAL_REQUIRED` |
 | `opportunity-stage-on-quote-sent` | `QUOTE_SENT` | — | `SET_OPPORTUNITY_STAGE` → `PROPOSAL_SENT` |
 | `opportunity-stage-on-quote-accepted` | `QUOTE_ACCEPTED` | — | `SET_OPPORTUNITY_STAGE` → `WON` |
@@ -105,8 +109,13 @@ de la perdre : c'est à l'équipe de décider (nouveau devis, ou « Perdue »
 de l'événement (`subjectType` / `subjectId`) et n'exige plus une demande :
 les actions qui en ont besoin se déclarent elles-mêmes « ignorées ».
 
-Les règles des missions s'ajouteront à la Phase 19 (`OPPORTUNITY_WON` →
-mission).
+**Missions (Phase 19)** : opportunité gagnée → mission → demande
+« Convertie en mission ». La chaîne de la section 45 est ainsi complète
+de bout en bout : demande → qualification → matching → opportunité →
+devis → mission. Le chef de projet n'est pas choisi automatiquement
+(section 6) : tous les chefs de projet sont notifiés de la mission à
+prendre en charge. Une opportunité rouverte puis regagnée ne crée pas de
+seconde mission, et une demande convertie ne revient pas en arrière.
 
 ## Exécution
 

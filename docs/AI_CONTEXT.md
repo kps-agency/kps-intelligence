@@ -1349,7 +1349,70 @@ contrôles, axe sans violation** (paramètres, création, éditeur, PDF
 téléchargés, envoi, refus, révision, acceptation, liste, mobile 390 px,
 observateur).
 
-Prochaine étape : **Phase 19 — Missions & tâches**.
+
+## Phase 19 — Missions & tâches (sections 45, 52, 53)
+
+Aucune partie de cette phase ne dépend de Claude.
+
+- **Module `missions/`** : `PLANNED → IN_PROGRESS → BLOCKED → ON_HOLD →
+  COMPLETED / CANCELLED` (toute transition permise), titre, client,
+  service, chef de projet, équipe (`mission_members`, rôle libre), dates,
+  priorité, budget. Pas de suppression (statut « Annulée »).
+- **Création automatique** : workflow `mission-on-opportunity-won` →
+  action `CREATE_MISSION`, idempotente (index unique par opportunité).
+  La mission reprend l'**équipe affectée à la demande** (Phase 16), et
+  son budget = montant HT du devis accepté, sinon la valeur estimée. La
+  demande passe à « Convertie en mission »
+  (`request-converted-on-mission-created`).
+- **Human in the loop** : le chef de projet n'est pas choisi
+  automatiquement — tous les chefs de projet sont notifiés, l'un d'eux est
+  désigné à la main (seuls les rôles avec `missions.manage` peuvent l'être).
+- **Tâches** (`tasks.service.ts`) : titre, responsable (obligatoirement
+  dans l'équipe ou chef de projet), échéance, priorité, statut,
+  commentaires. `missions.manage` pilote tout ; **le responsable d'une
+  tâche peut en changer le statut, et rien d'autre** ; toute l'équipe de la
+  mission peut commenter.
+- **Événements** (entité `mission`, rattachés à la demande d'origine) :
+  `MISSION_CREATED`, `MISSION_ASSIGNED` (membre ajouté ou chef de projet
+  désigné), `MISSION_MEMBER_REMOVED` (nouveau), `MISSION_STATUS_CHANGED`,
+  `MISSION_BLOCKED` (en plus, avec motif), `TASK_CREATED`, `TASK_ASSIGNED`,
+  `TASK_STATUS_CHANGED` (nouveaux). Timeline : `GET /missions/:id/timeline`.
+- **Notifications** : nouvelle audience « Chef de projet » ; mission créée,
+  ajout à une mission, mission bloquée (in-app + email), tâche confiée
+  (in-app, avec l'échéance).
+- **Permissions** : `missions.read` (tous les rôles, collaborateurs
+  compris), `missions.manage` (admins, chefs de projet, responsables
+  techniques).
+- **Profils équipe** : `GET /team/:id` renvoie désormais `missions`
+  (membre ou chef de projet), affichées sur `/team/[id]`.
+
+Frontend : `/missions` (recherche, statut, « Mes missions », création),
+`/missions/[id]` (statut avec motif de blocage, informations, équipe,
+tâches avec avancement / retard signalé / commentaires, historique),
+carte « Mission » sur la fiche opportunité (se rafraîchit seule après
+« Gagnée »), « Missions » sur la fiche client.
+
+Piège rencontré : un DTO instancié par `class-transformer` expose **toutes**
+ses propriétés (valeur `undefined`) — tester « seul le statut est fourni »
+avec `Object.keys(dto)` refusait tout au responsable d'une tâche. Tester
+les valeurs définies.
+
+Limites connues : pas de pièces jointes aux tâches (Phase 20) ; pas
+d'événement à la suppression d'une tâche ni à l'ajout d'un commentaire ;
+pas de rappel automatique d'échéance.
+
+Tests : **10 e2e réels** (`missions.e2e-spec.ts`, tous verts) — droits,
+pilotage, équipe, tâches et droits du responsable, commentaires, statut et
+blocage notifié, retrait d'un membre, filtres et profils, chaîne
+opportunité gagnée → mission (équipe, budget du devis accepté, demande
+convertie), idempotence. Navigateur réel : **29 contrôles, axe sans
+violation** — pilote (desktop), collaborateur (mobile 390 px, ne peut que
+terminer sa tâche), observateur (lecture seule). Deux échecs intermittents
+non reproduits pendant la mise au point du scénario (enregistrement des
+informations, dialogue de blocage), puis trois exécutions vertes de suite.
+
+Prochaine étape : **Phase 20 — Documents** (Supabase Storage ; l'analyse
+IA d'un cahier des charges attend le crédit Anthropic).
 
 ## Intégration des sites web (akoraweb) — demandes reçues par API
 

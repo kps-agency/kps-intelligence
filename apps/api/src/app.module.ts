@@ -15,6 +15,7 @@ import { EventsModule } from "./events/events.module";
 import { FormsModule } from "./forms/forms.module";
 import { HealthModule } from "./health/health.module";
 import { MatchingModule } from "./matching/matching.module";
+import { MissionsModule } from "./missions/missions.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { OpportunitiesModule } from "./opportunities/opportunities.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
@@ -90,6 +91,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     OpportunitiesModule,
     CompanyModule,
     QuotesModule,
+    MissionsModule,
     TeamModule,
     NotificationsModule,
     AuthModule,
