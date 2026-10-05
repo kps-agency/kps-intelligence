@@ -1,10 +1,11 @@
 "use client";
 
-import { OpportunityStatus, type OpportunityResponse } from "@kps/types";
+import { DocumentEntityType, OpportunityStatus, type OpportunityResponse } from "@kps/types";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kps/ui";
 import { Pencil } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { DocumentsCard } from "@/components/documents-card";
 import { MissionsCard } from "@/components/missions-card";
 import { QuotesCard } from "@/components/quotes-card";
 import { TimelineCard } from "@/components/timeline-card";
@@ -228,6 +229,7 @@ export function OpportunityDetail({
       <InfoCard opportunity={data} canManage={canManage} />
       <QuotesCard opportunityId={data.id} canCreate={data.clientId !== null} />
       <MissionsCard opportunityId={data.id} />
+      <DocumentsCard entityType={DocumentEntityType.OPPORTUNITY} entityId={data.id} />
       <TimelineCard timeline={timeline} />
     </div>
   );

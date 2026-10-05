@@ -684,6 +684,19 @@ documentée ici pour que ce choix ne soit jamais "redécouvert" par erreur.
 
 ---
 
+Compléments de la Phase 20 (migrations `20261005200001/2`) : le fichier
+vit dans le bucket privé `documents` de Supabase Storage,
+`storage_path` = `<entity_type>/<entity_id>/<uuid>-<nom nettoyé>`.
+`entity_type` vaut `request`, `opportunity`, `quote`, `mission`, `task`
+ou `client` (`DocumentEntityType`) ; l'existence de l'objet est vérifiée
+par `DocumentsService.resolveTarget` avant tout dépôt. Supprimer un
+document supprime la ligne puis le fichier. **La suppression d'un objet
+ne supprime pas ses documents** (pas de clé étrangère) : sans effet
+aujourd'hui, aucun de ces objets n'étant supprimable par l'application —
+à traiter avec la suppression RGPD (Phase 22).
+
+---
+
 ## 12. Conversations : `conversations`, `conversation_messages`
 
 ```text

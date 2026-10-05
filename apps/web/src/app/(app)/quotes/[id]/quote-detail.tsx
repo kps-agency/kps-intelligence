@@ -1,6 +1,6 @@
 "use client";
 
-import { QuoteStatus, type QuoteResponse } from "@kps/types";
+import { DocumentEntityType, QuoteStatus, type QuoteResponse } from "@kps/types";
 import {
   Badge,
   Button,
@@ -28,6 +28,7 @@ import {
 import { Check, Download, PencilLine, Send, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { DocumentsCard } from "@/components/documents-card";
 import { TimelineCard } from "@/components/timeline-card";
 import { ApiError, apiDownload } from "@/lib/api-client";
 import {
@@ -424,6 +425,7 @@ export function QuoteDetail({ quoteId, canManage }: { quoteId: string; canManage
         </CardContent>
       </Card>
 
+      <DocumentsCard entityType={DocumentEntityType.QUOTE} entityId={data.id} />
       <TimelineCard timeline={timeline} />
 
       {sending && <SendDialog quote={data} open onClose={() => setSending(false)} />}

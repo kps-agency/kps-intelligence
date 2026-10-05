@@ -68,8 +68,9 @@ parties IA reportées (liste dans `docs/AI_CONTEXT.md`).
 | 17 | Opportunités (Kanban, création automatique après matching) | ✅ sauf tests e2e via Claude (crédit) |
 | 18 | Devis (PDF, envoi email, versions, identité de l'entreprise) | ✅ sauf proposition par l'IA (crédit) |
 | 19 | Missions & tâches (création à l'opportunité gagnée, équipe, tâches, commentaires) | ✅ |
-| **20** | **Documents** | ⏭️ prochaine |
-| 21-25 | Dashboard, i18n/RGPD, audit, tests, prod | à faire |
+| 20 | Documents (stockage privé, liens signés, pièces jointes des tâches) | ✅ sauf analyse IA d'un document (crédit) |
+| **21** | **Dashboard & reports** | ⏭️ prochaine (la page d'accueil affiche déjà indicateurs et listes) |
+| 22-25 | i18n/RGPD, audit, tests, prod | à faire |
 
 ## Mise en route (environnement cloud)
 
@@ -116,6 +117,7 @@ apps/api/src/
   opportunities/   pipeline commercial (Kanban), création depuis une demande
   quotes/ company/ devis (totaux serveur, PDF pdfkit, versions) ; identité de l'entreprise
   missions/        missions, équipe, tâches et commentaires
+  documents/       fichiers (Supabase Storage privé), droits hérités de l'objet
   workflows/       WorkflowEngine : workflows en base, vocabulaire fermé
                    (workflow-definition.ts), actions (workflow-actions.service.ts),
                    étapes différées BullMQ
@@ -288,7 +290,7 @@ push.
 
 - **Crédit du compte Anthropic** : sans lui, aucune analyse Claude.
   À son retour : régression e2e complète + proposition de devis par l'IA
-  (Phase 18) et autres parties IA reportées.
+  (Phase 18), analyse IA d'un document (Phase 20).
 - **Identité de l'entreprise** (Paramètres → Entreprise) : raison sociale,
   adresse, n° de TVA, IBAN, taux de TVA, conditions. Vide tant qu'elle
   n'est pas saisie : aucun devis ne peut être généré ni envoyé.

@@ -266,6 +266,9 @@ export enum EventType {
   TASK_ASSIGNED = "TASK_ASSIGNED",
   TASK_STATUS_CHANGED = "TASK_STATUS_CHANGED",
   MISSION_MEMBER_REMOVED = "MISSION_MEMBER_REMOVED",
+  // Ajouts Phase 20 (documents, section 54).
+  DOCUMENT_UPLOADED = "DOCUMENT_UPLOADED",
+  DOCUMENT_DELETED = "DOCUMENT_DELETED",
 }
 
 export enum WorkflowRunStatus {
@@ -284,4 +287,15 @@ export enum EventEntityType {
   OPPORTUNITY = "opportunity",
   QUOTE = "quote",
   MISSION = "mission",
+  CLIENT = "client",
+}
+
+// Objets auxquels un document peut être rattaché (documents.entity_type).
+export enum DocumentEntityType {
+  REQUEST = "request",
+  OPPORTUNITY = "opportunity",
+  QUOTE = "quote",
+  MISSION = "mission",
+  TASK = "task",
+  CLIENT = "client",
 }

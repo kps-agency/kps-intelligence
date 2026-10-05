@@ -173,6 +173,10 @@ function describe(event: TimelineEventResponse): string {
       return `Tâche « ${text(p.taskTitle)} » : ${TASK_STATUS_LABELS[p.from as TaskStatus] ?? text(p.from)} → ${
         TASK_STATUS_LABELS[p.to as TaskStatus] ?? text(p.to)
       }`;
+    case "DOCUMENT_UPLOADED":
+      return p.attachedTo === "task" ? `Pièce jointe déposée : ${text(p.name)}` : `Document déposé : ${text(p.name)}`;
+    case "DOCUMENT_DELETED":
+      return `Document supprimé : ${text(p.name)}`;
     case "REQUEST_ASSIGNED":
       return `Demande assignée à ${text(p.assignedUserName) || "un utilisateur"}`;
     case "TEAM_NOTIFIED":

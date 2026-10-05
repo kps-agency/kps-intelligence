@@ -1423,8 +1423,46 @@ couleur. Vérifié en navigateur : 14 contrôles (chiffres recoupés avec
 l'API, collaborateur sur mobile), axe sans violation. Les graphiques et
 métriques agrégées restent l'objet de la Phase 21.
 
-Prochaine étape : **Phase 20 — Documents** (Supabase Storage ; l'analyse
-IA d'un cahier des charges attend le crédit Anthropic).
+
+## Phase 20 — Documents (sections 54, 55, 60)
+
+> ⚠️ **Sans l'analyse IA d'un document** (section 55 : cahier des charges
+> PDF → informations structurées) — reportée, compte Anthropic sans
+> crédit. À faire : extraction du texte du PDF, prompt versionné
+> `document-analysis@1`, résultat rattaché à la demande ou à
+> l'opportunité, job `DOCUMENT_PROCESSING`.
+
+- **Module `documents/`** : dépôt, liste, téléchargement, suppression,
+  pour six types d'objet — demande, opportunité, devis, mission, **tâche**
+  (les pièces jointes de la section 53) et client.
+- **Supabase Storage réel**, bucket privé `documents` créé au démarrage
+  s'il manque ; téléchargement par **lien signé de 60 s**.
+- **Droits hérités de l'objet** et **contrôle des fichiers** (type,
+  extension, signature du contenu, 15 Mo) : détail dans `docs/SECURITY.md`.
+- **Événements** `DOCUMENT_UPLOADED` / `DOCUMENT_DELETED`, portés par
+  l'objet concerné (la mission pour une pièce jointe de tâche), donc
+  visibles dans son historique et dans celui de la demande d'origine.
+- **Permissions** : `documents.read` (tous les rôles), `documents.manage`
+  (tous sauf l'observateur).
+
+Frontend : carte « Documents » sur les fiches demande, opportunité, devis,
+mission et client ; « Pièces jointes » dans le dialogue d'une tâche.
+
+Bug réel trouvé par le test navigateur : ouvert directement, un lien signé
+Supabase donne au fichier un nom encodé (« %C3%A9t%C3%A9.pdf ») dès qu'il
+contient un accent. L'interface récupère donc le fichier puis l'enregistre
+sous son nom d'origine.
+
+Tests : 5 unitaires (contrôle des fichiers, noms) ; **9 e2e réels**
+(`documents.e2e-spec.ts`) — bucket privé, refus (droits, type, exécutable
+renommé, extension, vide, 413), dépôt relu dans le stockage, droits par
+objet, lien signé (fichier identique octet pour octet, rien d'accessible
+sans signature), mission et tâche, suppression (fichier réellement
+effacé), client. Navigateur réel : **19 contrôles, axe sans violation**
+(dépôt, téléchargement, refus expliqué, suppression, pièce jointe d'une
+tâche, mobile avec nom très long, observateur).
+
+Prochaine étape : **Phase 21 — Dashboard & reports** (vues SQL, graphiques).
 
 ## Intégration des sites web (akoraweb) — demandes reçues par API
 

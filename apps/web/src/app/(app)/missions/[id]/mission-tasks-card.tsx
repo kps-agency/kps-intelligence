@@ -1,7 +1,7 @@
 "use client";
 
 import { PRIORITY_LABELS } from "@kps/shared";
-import { PriorityLevel, TaskStatus, type MissionResponse, type TaskResponse } from "@kps/types";
+import { DocumentEntityType, PriorityLevel, TaskStatus, type MissionResponse, type TaskResponse } from "@kps/types";
 import {
   Badge,
   Button,
@@ -23,6 +23,7 @@ import {
 import { MessageSquare, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useCurrentUser } from "@/components/current-user-context";
+import { DocumentsList } from "@/components/documents-card";
 import { ApiError } from "@/lib/api-client";
 import { TASK_STATUS_LABELS, TASK_STATUS_VARIANT } from "@/lib/mission-display";
 import {
@@ -153,7 +154,17 @@ function CommentsDialog({
         </DialogHeader>
         {task.description && <p className="whitespace-pre-wrap text-sm">{task.description}</p>}
 
-        <section aria-label="Commentaires" className="flex flex-col gap-3 text-sm">
+        <section aria-labelledby="task-attachments" className="flex flex-col gap-2">
+          <h3 id="task-attachments" className="text-sm font-semibold">
+            Pièces jointes
+          </h3>
+          <DocumentsList entityType={DocumentEntityType.TASK} entityId={task.id} emptyLabel="Aucune pièce jointe." />
+        </section>
+
+        <section aria-labelledby="task-comments" className="flex flex-col gap-3 text-sm">
+          <h3 id="task-comments" className="font-semibold">
+            Commentaires
+          </h3>
           {comments.isPending && <Skeleton className="h-10" />}
           {comments.data?.length === 0 && <p className="text-muted-foreground">Aucun commentaire.</p>}
           {comments.data && comments.data.length > 0 && (

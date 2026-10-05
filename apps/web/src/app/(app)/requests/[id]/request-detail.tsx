@@ -1,7 +1,9 @@
 "use client";
 
+import { DocumentEntityType } from "@kps/types";
 import { Card, CardContent, Skeleton } from "@kps/ui";
 import Link from "next/link";
+import { DocumentsCard } from "@/components/documents-card";
 import { OpportunitiesCard } from "@/components/opportunities-card";
 import { ApiError } from "@/lib/api-client";
 import { useRequestDetail } from "@/lib/queries/requests";
@@ -67,6 +69,7 @@ export function RequestDetail({
       <RequestQualificationAnalysisCard requestId={requestId} canManage={canManage} />
       <RequestMatchingCard requestId={requestId} />
       <OpportunitiesCard requestId={requestId} />
+      <DocumentsCard entityType={DocumentEntityType.REQUEST} entityId={requestId} />
       <RequestTimelineCard requestId={requestId} />
     </div>
   );

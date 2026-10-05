@@ -1,7 +1,7 @@
 "use client";
 
 import { PRIORITY_LABELS } from "@kps/shared";
-import { MissionStatus, PriorityLevel, type MissionResponse } from "@kps/types";
+import { DocumentEntityType, MissionStatus, PriorityLevel, type MissionResponse } from "@kps/types";
 import {
   Badge,
   Button,
@@ -24,6 +24,7 @@ import {
 import { Pencil, UserMinus, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { DocumentsCard } from "@/components/documents-card";
 import { TimelineCard } from "@/components/timeline-card";
 import { ApiError } from "@/lib/api-client";
 import { MISSION_STATUS_LABELS, MISSION_STATUS_VARIANT } from "@/lib/mission-display";
@@ -462,6 +463,7 @@ export function MissionDetail({ missionId, canManage }: { missionId: string; can
       <InfoCard mission={data} canManage={canManage} />
       <TeamCard mission={data} canManage={canManage} />
       <MissionTasksCard mission={data} canManage={canManage} />
+      <DocumentsCard entityType={DocumentEntityType.MISSION} entityId={data.id} />
       <TimelineCard timeline={timeline} />
     </div>
   );

@@ -2152,6 +2152,8 @@ export type Database = {
         | "TASK_ASSIGNED"
         | "TASK_STATUS_CHANGED"
         | "MISSION_MEMBER_REMOVED"
+        | "DOCUMENT_UPLOADED"
+        | "DOCUMENT_DELETED"
       form_field_type:
         | "TEXT"
         | "TEXTAREA"
@@ -2420,6 +2422,8 @@ export const Constants = {
         "TASK_ASSIGNED",
         "TASK_STATUS_CHANGED",
         "MISSION_MEMBER_REMOVED",
+        "DOCUMENT_UPLOADED",
+        "DOCUMENT_DELETED",
       ],
       form_field_type: [
         "TEXT",

@@ -166,6 +166,25 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   [TaskStatus.CANCELLED]: "Annulée",
 };
 
+/** Taille maximale d'un document déposé (section 54), en octets. */
+export const DOCUMENT_MAX_SIZE_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Types de fichier acceptés (section 54 : cahiers des charges, PDF,
+ * images, devis, contrats). Clé = type MIME, valeur = extensions admises.
+ */
+export const DOCUMENT_ALLOWED_TYPES: Record<string, string[]> = {
+  "application/pdf": ["pdf"],
+  "image/png": ["png"],
+  "image/jpeg": ["jpg", "jpeg"],
+  "image/webp": ["webp"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ["docx"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ["xlsx"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ["pptx"],
+  "text/plain": ["txt"],
+  "text/csv": ["csv"],
+};
+
 /** Libellés d'affichage des niveaux de priorité/urgence. */
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
   [PriorityLevel.LOW]: "Faible",

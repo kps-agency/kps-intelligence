@@ -139,3 +139,25 @@ Checklist reprise de `prompt.md` section 60, à cocher avant mise en
 production : RBAC, RLS, validation, rate limiting, CORS, protection
 webhooks, vérification de signature, secrets côté serveur uniquement,
 audit logs, contrôle des fichiers, protection des liens publics.
+
+## Documents et fichiers (Phase 20, sections 54 et 60)
+
+- **Stockage privé** : bucket Supabase Storage `documents`, non public,
+  créé par l'API au démarrage s'il manque. Aucun fichier n'est accessible
+  par une URL permanente ; le navigateur n'a jamais la clé du stockage.
+- **Téléchargement par lien signé** de 60 secondes, délivré par l'API
+  après contrôle des droits (`GET /documents/:id/download`).
+- **Droits hérités de l'objet** : on lit les documents d'un objet si on a
+  le droit de lire l'objet (ex. `opportunities.read`), en plus de
+  `documents.read`. Pièce jointe d'une tâche = droits de sa mission.
+  Suppression : l'auteur du dépôt, ou qui a le droit de gérer l'objet.
+- **Contrôle des fichiers** (`documents/file-validation.ts`) : liste
+  fermée de types (PDF, PNG, JPEG, WebP, Word, Excel, PowerPoint, texte,
+  CSV), extension cohérente avec le type, et **signature du contenu**
+  vérifiée — un exécutable renommé en `.pdf` est refusé. 15 Mo au plus,
+  limite appliquée dès la réception (413). Pas d'antivirus : à ajouter
+  avant d'ouvrir le dépôt à des tiers (aujourd'hui réservé aux
+  utilisateurs internes authentifiés).
+- **Clé de stockage** générée par le serveur
+  (`<type>/<id objet>/<uuid>-<nom nettoyé>`) : le nom fourni par
+  l'utilisateur n'est jamais utilisé comme chemin.

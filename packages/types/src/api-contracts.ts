@@ -3,6 +3,7 @@ import type {
   AiAnalysisStatus,
   AvailabilityStatus,
   ClientStatus,
+  DocumentEntityType,
   EventActorType,
   EventEntityType,
   EventType,
@@ -999,6 +1000,30 @@ export interface TaskCommentResponse {
   authorName: string | null;
   body: string;
   createdAt: string;
+}
+
+// ---- Documents (section 54) ----
+
+export interface DocumentResponse {
+  id: string;
+  name: string;
+  mimeType: string;
+  // Taille en octets.
+  size: number;
+  entityType: DocumentEntityType;
+  entityId: string;
+  uploadedById: string | null;
+  uploadedByName: string | null;
+  createdAt: string;
+  // Vrai pour celui qui a déposé le document et pour qui gère l'objet.
+  canDelete: boolean;
+}
+
+// Réponse de GET /documents/:id/download : lien signé, valable peu de
+// temps, vers le fichier dans le stockage privé.
+export interface DocumentDownloadResponse {
+  url: string;
+  expiresInSeconds: number;
 }
 
 // ---- Workflow Engine (sections 39, 45, 46) ----

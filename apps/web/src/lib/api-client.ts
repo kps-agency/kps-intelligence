@@ -56,7 +56,9 @@ async function apiRequest(path: string, init: RequestInit): Promise<Response> {
     response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1${path}`, {
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        // Envoi de fichier : le navigateur pose lui-même l'en-tête
+        // multipart avec sa frontière.
+        ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...init.headers,
       },

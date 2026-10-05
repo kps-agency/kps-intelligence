@@ -1,7 +1,9 @@
 "use client";
 
+import { DocumentEntityType } from "@kps/types";
 import { Card, CardContent, Skeleton } from "@kps/ui";
 import Link from "next/link";
+import { DocumentsCard } from "@/components/documents-card";
 import { MissionsCard } from "@/components/missions-card";
 import { OpportunitiesCard } from "@/components/opportunities-card";
 import { QuotesCard } from "@/components/quotes-card";
@@ -65,6 +67,7 @@ export function ClientDetail({
       <OpportunitiesCard clientId={clientId} />
       <QuotesCard clientId={clientId} />
       <MissionsCard clientId={clientId} />
+      <DocumentsCard entityType={DocumentEntityType.CLIENT} entityId={clientId} />
     </div>
   );
 }

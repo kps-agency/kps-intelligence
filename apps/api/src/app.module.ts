@@ -10,6 +10,7 @@ import { ClientsModule } from "./clients/clients.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { CompanyModule } from "./company/company.module";
 import { ContactsModule } from "./contacts/contacts.module";
+import { DocumentsModule } from "./documents/documents.module";
 import { EmailModule } from "./email/email.module";
 import { EventsModule } from "./events/events.module";
 import { FormsModule } from "./forms/forms.module";
@@ -92,6 +93,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     CompanyModule,
     QuotesModule,
     MissionsModule,
+    DocumentsModule,
     TeamModule,
     NotificationsModule,
     AuthModule,
