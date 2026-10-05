@@ -130,6 +130,12 @@ export class MissionsController {
     return this.tasksService.create(id, dto, user);
   }
 
+  @Get("tasks/mine")
+  @RequirePermissions("missions.read")
+  myTasks(@CurrentUser() user: AuthenticatedUser) {
+    return this.tasksService.listMine(user.id);
+  }
+
   // `missions.read` suffit pour entrer : le service n'autorise ensuite que
   // le pilote (missions.manage) ou le responsable de la tâche, pour son
   // seul statut.

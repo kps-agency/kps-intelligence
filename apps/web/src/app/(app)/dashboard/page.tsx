@@ -1,6 +1,7 @@
 import { ROLE_LABELS } from "@kps/shared";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@kps/ui";
 import { getCurrentUser } from "@/lib/session";
+import { HomeOverview } from "./home-overview";
 
 export const metadata = { title: "Dashboard" };
 
@@ -21,6 +22,8 @@ export default async function DashboardPage() {
           Bienvenue sur KPS Intelligence.
         </p>
       </div>
+
+      <HomeOverview />
 
       <Card>
         <CardHeader>

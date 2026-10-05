@@ -1,6 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventType, TaskStatus } from "@kps/types";
-import type { Database, PriorityLevel, TaskCommentResponse, TaskResponse } from "@kps/types";
+import type {
+  Database,
+  MyTaskResponse,
+  PriorityLevel,
+  TaskCommentResponse,
+  TaskResponse,
+} from "@kps/types";
 import { toDbException } from "../common/db-error";
 import { userActor } from "../events/event-bus.service";
 import { SupabaseService } from "../supabase/supabase.service";
@@ -59,6 +65,25 @@ export class TasksService {
       .order("created_at", { ascending: true });
     if (error) throw toDbException(error);
     return (data as unknown as TaskWithLinks[]).map(toResponse);
+  }
+
+  // Tâches ouvertes confiées à l'utilisateur, les échéances les plus
+  // proches d'abord (celles sans échéance en dernier).
+  async listMine(userId: string): Promise<MyTaskResponse[]> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("tasks")
+      .select("*, assignee:users!tasks_assignee_id_fkey(first_name, last_name), task_comments(count), missions(title)")
+      .eq("assignee_id", userId)
+      .in("status", ["TODO", "IN_PROGRESS", "BLOCKED"])
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true })
+      .limit(50);
+    if (error) throw toDbException(error);
+    return (data as unknown as (TaskWithLinks & { missions: { title: string } | null })[]).map((row) => ({
+      ...toResponse(row),
+      missionTitle: row.missions?.title ?? "",
+    }));
   }
 
   async create(missionId: string, dto: CreateTaskDto, user: AuthenticatedUser): Promise<TaskResponse> {

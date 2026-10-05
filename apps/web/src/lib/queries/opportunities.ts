@@ -48,8 +48,9 @@ function invalidateOpportunity(queryClient: QueryClient, opportunity: Opportunit
 
 // D'autres utilisateurs et les workflows font aussi bouger le pipeline :
 // rafraîchi périodiquement tant que la page est visible.
-export function useOpportunityBoard(params: BoardParams) {
+export function useOpportunityBoard(params: BoardParams, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: boardKey(params),
     queryFn: () => apiFetch<OpportunityBoardResponse>(`/opportunities/board${toQueryString(params)}`),
     placeholderData: (previous) => previous,

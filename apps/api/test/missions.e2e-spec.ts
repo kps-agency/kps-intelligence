@@ -340,6 +340,14 @@ describe("Missions et tâches (intégration réelle)", () => {
       expect(notified[0]?.title).toContain("Maquettes de la page d'accueil");
       expect(notified[0]?.body).toContain("20.11.2026");
 
+      // Page d'accueil : chacun ne retrouve que ses propres tâches ouvertes.
+      const mine = await http().get("/api/v1/tasks/mine").set(as(amadou.token)).expect(200);
+      expect(mine.body).toEqual([
+        expect.objectContaining({ id: taskId, missionId, missionTitle: `${run} — refonte du site`, status: "TODO" }),
+      ]);
+      expect((await http().get("/api/v1/tasks/mine").set(as(fatou.token)).expect(200)).body).toEqual([]);
+      await http().get("/api/v1/tasks/mine").expect(401);
+
       // Amadou fait avancer SA tâche, et rien d'autre.
       await http().patch(`/api/v1/tasks/${taskId}`).set(as(amadou.token)).send({ title: "Autre titre" }).expect(403);
       await http()
@@ -357,6 +365,9 @@ describe("Missions et tâches (intégration réelle)", () => {
       expect(done.body.completedAt).toBeTruthy();
       // Même statut : rien n'est tracé.
       await http().patch(`/api/v1/tasks/${taskId}`).set(as(amadou.token)).send({ status: "DONE" }).expect(200);
+
+      // Terminée : elle quitte la liste des tâches ouvertes.
+      expect((await http().get("/api/v1/tasks/mine").set(as(amadou.token)).expect(200)).body).toEqual([]);
 
       const changes = (await missionEvents(missionId)).filter(
         (e) => e.type === "TASK_STATUS_CHANGED" && (e.payload as { taskId?: string }).taskId === taskId,

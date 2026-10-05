@@ -1411,6 +1411,18 @@ terminer sa tâche), observateur (lecture seule). Deux échecs intermittents
 non reproduits pendant la mise au point du scénario (enregistrement des
 informations, dialogue de blocage), puis trois exécutions vertes de suite.
 
+**Page d'accueil (`/dashboard`, demande utilisateur du 05/10/2026)** :
+les modules des Phases 17 à 19 y apparaissent — quatre indicateurs
+cliquables (opportunités en cours et valeur pondérée, devis en attente de
+réponse, missions en cours avec alerte « bloquée(s) », mes tâches ouvertes
+avec alerte « en retard »), puis « Mes tâches » (`GET /tasks/mine`),
+« Missions en cours », « Pipeline commercial » (tableau par étape) et
+« Derniers devis ». Chaque bloc n'apparaît que si l'utilisateur a le droit
+de lire le module ; alertes dites en toutes lettres, jamais par la seule
+couleur. Vérifié en navigateur : 14 contrôles (chiffres recoupés avec
+l'API, collaborateur sur mobile), axe sans violation. Les graphiques et
+métriques agrégées restent l'objet de la Phase 21.
+
 Prochaine étape : **Phase 20 — Documents** (Supabase Storage ; l'analyse
 IA d'un cahier des charges attend le crédit Anthropic).
 

@@ -7,6 +7,7 @@ import type {
   MissionListItemResponse,
   MissionResponse,
   MissionStatus,
+  MyTaskResponse,
   PaginatedResponse,
   TaskCommentResponse,
   TaskResponse,
@@ -138,6 +139,14 @@ export function useMissionTasks(missionId: string) {
   return useQuery({
     queryKey: ["missions", "tasks", missionId] as const,
     queryFn: () => apiFetch<TaskResponse[]>(`/missions/${missionId}/tasks`),
+  });
+}
+
+export function useMyTasks(enabled = true) {
+  return useQuery({
+    queryKey: ["missions", "my-tasks"] as const,
+    queryFn: () => apiFetch<MyTaskResponse[]>("/tasks/mine"),
+    enabled,
   });
 }
 

@@ -968,6 +968,12 @@ export interface TaskResponse {
   updatedAt: string;
 }
 
+// Élément de GET /tasks/mine : les tâches ouvertes de l'utilisateur
+// connecté, toutes missions confondues (page d'accueil).
+export interface MyTaskResponse extends TaskResponse {
+  missionTitle: string;
+}
+
 export interface CreateTaskRequest {
   title: string;
   description?: string | null;
