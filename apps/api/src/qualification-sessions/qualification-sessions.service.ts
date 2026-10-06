@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { QUALIFICATION_LINK_DEFAULT_EXPIRY_DAYS } from "@kps/shared";
+import { CONSENT_VERSION, QUALIFICATION_LINK_DEFAULT_EXPIRY_DAYS, prospectLanguage } from "@kps/shared";
 import { EventEntityType, EventType, FormFieldType, QualificationSessionStatus } from "@kps/types";
 import type {
   Database,
@@ -354,10 +354,26 @@ export class QualificationSessionsService {
     return this.buildPublicResponse(updated);
   }
 
-  async submitPublic(rawToken: string): Promise<PublicQualificationSessionResponse> {
+  // Section 66 : le prospect ne peut envoyer ses réponses qu'après avoir
+  // accepté leur traitement ; la date et la version du texte accepté sont
+  // conservées avec la session.
+  async submitPublic(rawToken: string, consent: boolean): Promise<PublicQualificationSessionResponse> {
     const session = await this.resolveByToken(rawToken);
+    if (!consent) {
+      throw new BadRequestException(
+        "Votre accord pour le traitement de vos réponses est nécessaire pour envoyer le formulaire.",
+      );
+    }
     const updated = await this.submitSession(session, SYSTEM_ACTOR);
-    return this.buildPublicResponse(updated);
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("qualification_sessions")
+      .update({ consent_at: new Date().toISOString(), consent_version: CONSENT_VERSION })
+      .eq("id", updated.id)
+      .select("*")
+      .single();
+    if (error) throw toDbException(error);
+    return this.buildPublicResponse(data);
   }
 
   // ---- Cœur partagé (authentifié et public convergent ici) ----
@@ -494,7 +510,7 @@ export class QualificationSessionsService {
     const { data: requestRow, error: requestError } = await this.supabase
       .getClient()
       .from("requests")
-      .select("reference, contact_id")
+      .select("reference, contact_id, language")
       .eq("id", session.request_id)
       .maybeSingle();
     if (requestError) throw toDbException(requestError);
@@ -517,6 +533,7 @@ export class QualificationSessionsService {
       contactFirstName,
       serviceName: form.serviceName,
       requestReference: requestRow?.reference ?? "",
+      language: prospectLanguage(session.language ?? requestRow?.language),
       form,
       responses,
     };

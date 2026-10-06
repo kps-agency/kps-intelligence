@@ -262,6 +262,7 @@ export type Database = {
       }
       contacts: {
         Row: {
+          anonymized_at: string | null
           client_id: string
           created_at: string
           email: string | null
@@ -277,6 +278,7 @@ export type Database = {
           whatsapp_digits: string | null
         }
         Insert: {
+          anonymized_at?: string | null
           client_id: string
           created_at?: string
           email?: string | null
@@ -292,6 +294,7 @@ export type Database = {
           whatsapp_digits?: string | null
         }
         Update: {
+          anonymized_at?: string | null
           client_id?: string
           created_at?: string
           email?: string | null
@@ -1150,6 +1153,8 @@ export type Database = {
       qualification_sessions: {
         Row: {
           completed_at: string | null
+          consent_at: string | null
+          consent_version: string | null
           created_at: string
           expires_at: string
           form_id: string
@@ -1166,6 +1171,8 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          consent_at?: string | null
+          consent_version?: string | null
           created_at?: string
           expires_at: string
           form_id: string
@@ -1182,6 +1189,8 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          consent_at?: string | null
+          consent_version?: string | null
           created_at?: string
           expires_at?: string
           form_id?: string
@@ -2063,6 +2072,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anonymize_contact: {
+        Args: {
+          p_contact_id: string
+          p_ip: string
+          p_user_agent: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       generate_quote_reference: { Args: never; Returns: string }
       generate_request_reference: { Args: never; Returns: string }
       get_role_permissions: { Args: { p_role_id: string }; Returns: string[] }

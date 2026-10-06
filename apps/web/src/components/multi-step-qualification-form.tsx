@@ -4,6 +4,7 @@ import type { FormResponse } from "@kps/types";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@kps/ui";
 import { useEffect, useState } from "react";
 import { QualificationField } from "@/components/qualification-field";
+import { QUALIFICATION_COPY, type QualificationLocale } from "@/lib/qualification-copy";
 import { isFieldVisible, missingRequiredLabels } from "@/lib/qualification-form-logic";
 
 // Moteur de rendu partagé entre le runner authentifié (admin,
@@ -21,6 +22,8 @@ export function MultiStepQualificationForm({
   onSubmit,
   isSaving,
   isSubmitting,
+  locale = "fr",
+  consent,
 }: {
   form: FormResponse;
   initialResponses: Record<string, unknown>;
@@ -30,7 +33,13 @@ export function MultiStepQualificationForm({
   onSubmit: () => Promise<unknown>;
   isSaving: boolean;
   isSubmitting: boolean;
+  // Langue des textes d'interface (les questions gardent celle du formulaire).
+  locale?: QualificationLocale;
+  // Page publique : accord du prospect, demandé à la dernière étape et
+  // exigé pour envoyer (section 66).
+  consent?: { checked: boolean; onChange: (checked: boolean) => void; label: string; detail: string };
 }) {
+  const copy = QUALIFICATION_COPY[locale];
   const [stepIndex, setStepIndex] = useState(0);
   const [values, setValues] = useState<Record<string, unknown>>(initialResponses);
   const [error, setError] = useState<string | null>(null);
@@ -47,14 +56,14 @@ export function MultiStepQualificationForm({
     setValues((prev) => ({ ...prev, [fieldKey]: value }));
     if (readOnly) return;
     onSaveField(fieldKey, value).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Échec de l'enregistrement.");
+      setError(err instanceof Error ? err.message : copy.saveFailed);
     });
   }
 
   function goNext() {
     const missing = missingRequiredLabels(visibleFields, values);
     if (missing.length > 0) {
-      setError(`Champs requis manquants : ${missing.join(", ")}`);
+      setError(copy.missing(missing));
       return;
     }
     setError(null);
@@ -64,11 +73,16 @@ export function MultiStepQualificationForm({
   function handleSubmit() {
     const missing = missingRequiredLabels(visibleFields, values);
     if (missing.length > 0) {
-      setError(`Champs requis manquants : ${missing.join(", ")}`);
+      setError(copy.missing(missing));
       return;
     }
+    if (consent && !consent.checked) {
+      setError(copy.consentRequired);
+      return;
+    }
+    setError(null);
     onSubmit().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Échec de la soumission.");
+      setError(err instanceof Error ? err.message : copy.submitFailed);
     });
   }
 
@@ -80,12 +94,12 @@ export function MultiStepQualificationForm({
             {form.name}
           </CardTitle>
           <Badge variant="outline">
-            Étape {stepIndex + 1} / {steps.length}
+            {copy.step(stepIndex + 1, steps.length)}
           </Badge>
         </div>
         <div
           role="progressbar"
-          aria-label="Progression de la qualification"
+          aria-label={copy.progress}
           aria-valuenow={stepIndex + 1}
           aria-valuemin={1}
           aria-valuemax={steps.length}
@@ -114,6 +128,27 @@ export function MultiStepQualificationForm({
           />
         ))}
 
+        {consent && isLastStep && !readOnly && (
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <input
+              id="qualification-consent"
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+              checked={consent.checked}
+              aria-describedby="qualification-consent-detail"
+              onChange={(event) => consent.onChange(event.target.checked)}
+            />
+            <div className="flex flex-col gap-1 text-sm">
+              <label htmlFor="qualification-consent" className="font-medium">
+                {consent.label}
+              </label>
+              <p id="qualification-consent-detail" className="text-muted-foreground">
+                {consent.detail}
+              </p>
+            </div>
+          </div>
+        )}
+
         {error && (
           <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
@@ -127,15 +162,15 @@ export function MultiStepQualificationForm({
             disabled={stepIndex === 0}
             onClick={() => setStepIndex((i) => Math.max(i - 1, 0))}
           >
-            Précédent
+            {copy.previous}
           </Button>
           {isLastStep ? (
             <Button type="button" disabled={readOnly || isSubmitting || isSaving} onClick={handleSubmit}>
-              {isSubmitting ? "Envoi..." : isSaving ? "Enregistrement..." : "Soumettre"}
+              {isSubmitting ? copy.submitting : isSaving ? copy.saving : copy.submit}
             </Button>
           ) : (
             <Button type="button" disabled={isSaving} onClick={goNext}>
-              Suivant
+              {copy.next}
             </Button>
           )}
         </div>

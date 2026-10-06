@@ -70,8 +70,9 @@ parties IA reportées (liste dans `docs/AI_CONTEXT.md`).
 | 19 | Missions & tâches (création à l'opportunité gagnée, équipe, tâches, commentaires) | ✅ |
 | 20 | Documents (stockage privé, liens signés, pièces jointes des tâches) | ✅ sauf analyse IA d'un document (crédit) |
 | 21 | Dashboard & reports (agrégats SQL, page Rapports, graphiques) | ✅ |
-| **22** | **i18n & RGPD** | ⏭️ prochaine |
-| 23-25 | Audit, tests, prod | à faire |
+| 22 | i18n & RGPD | ⚠️ **partielle** : RGPD (consentement, export, effacement) et communications au prospect FR/EN faits ; **interface interne en anglais et notifications EN à faire** |
+| **23** | **Audit & observabilité** | ⏭️ prochaine |
+| 24-25 | Tests, prod | à faire |
 
 ## Mise en route (environnement cloud)
 
@@ -119,6 +120,7 @@ apps/api/src/
   quotes/ company/ devis (totaux serveur, PDF pdfkit, versions) ; identité de l'entreprise
   missions/        missions, équipe, tâches et commentaires
   documents/       fichiers (Supabase Storage privé), droits hérités de l'objet
+  reports/ privacy/ agrégats SQL des rapports ; export et effacement RGPD d'un contact
   workflows/       WorkflowEngine : workflows en base, vocabulaire fermé
                    (workflow-definition.ts), actions (workflow-actions.service.ts),
                    étapes différées BullMQ

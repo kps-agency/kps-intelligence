@@ -130,7 +130,7 @@ describe("Équipe et matching (intégration réelle)", () => {
     for (const [key, value] of Object.entries(answers)) {
       await http().put(`/api/v1/public/qualification/${token}/responses/${key}`).send({ value }).expect(200);
     }
-    await http().post(`/api/v1/public/qualification/${token}/submit`).expect(201);
+    await http().post(`/api/v1/public/qualification/${token}/submit`).send({ consent: true }).expect(201);
     await eventBus.whenIdle();
     return created.body.id as string;
   }

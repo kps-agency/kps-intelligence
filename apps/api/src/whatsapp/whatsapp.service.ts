@@ -41,7 +41,9 @@ export class WhatsappService {
       type: "template",
       template: {
         name: template,
-        language: { code: this.config.get<string>("WHATSAPP_TEMPLATE_LANGUAGE") || "fr" },
+        // Un template approuvé par Meta existe par langue : celle du
+        // prospect si elle est fournie, sinon celle configurée.
+        language: { code: params.language ?? (this.config.get<string>("WHATSAPP_TEMPLATE_LANGUAGE") || "fr") },
         components: [
           {
             type: "body",

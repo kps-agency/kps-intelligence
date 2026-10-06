@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { computeQuoteTotals } from "@kps/shared";
+import { computeQuoteTotals, prospectLanguage, type ProspectLanguage } from "@kps/shared";
 import { EventEntityType, EventType, QuoteStatus } from "@kps/types";
 import type {
   Database,
@@ -276,6 +276,7 @@ export class QuotesService {
           validUntil: document.validUntil ? formatDate(document.validUntil) : null,
           companyName: document.company.legalName,
           message: dto.message ?? null,
+          language: await this.prospectLanguage(row),
         },
         { filename: `${document.reference}.pdf`, content: pdf },
       );
@@ -455,6 +456,20 @@ export class QuotesService {
       .maybeSingle();
     if (error) throw toDbException(error);
     return data;
+  }
+
+  // Section 65 : langue de la demande d'origine, français sans demande.
+  private async prospectLanguage(row: QuoteWithLinks): Promise<ProspectLanguage> {
+    const requestId = row.opportunities?.request_id;
+    if (!requestId) return "fr";
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("requests")
+      .select("language")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (error) throw toDbException(error);
+    return prospectLanguage(data?.language);
   }
 
   private async suggestedRecipient(row: QuoteWithLinks): Promise<string | null> {

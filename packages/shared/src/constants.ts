@@ -185,6 +185,26 @@ export const DOCUMENT_ALLOWED_TYPES: Record<string, string[]> = {
   "text/csv": ["csv"],
 };
 
+/** Langues dans lesquelles un prospect peut être servi (section 65). */
+export type ProspectLanguage = "fr" | "en";
+
+/**
+ * Langue de communication avec un prospect, d'après la langue détectée de
+ * sa demande (« en », « en-GB », « English »...). Français par défaut :
+ * c'est la langue de l'agence, et toute langue non prise en charge y
+ * retombe.
+ */
+export function prospectLanguage(value: string | null | undefined): ProspectLanguage {
+  return value?.trim().toLowerCase().startsWith("en") ? "en" : "fr";
+}
+
+/**
+ * Version du texte de consentement affiché sur la page publique de
+ * qualification (section 66). À changer dès que le texte change : chaque
+ * consentement enregistré garde la version sur laquelle il porte.
+ */
+export const CONSENT_VERSION = "2026-10";
+
 /** Libellés d'affichage des niveaux de priorité/urgence. */
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
   [PriorityLevel.LOW]: "Faible",

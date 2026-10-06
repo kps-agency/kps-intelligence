@@ -141,6 +141,9 @@ export interface ContactResponse {
   whatsapp: string | null;
   position: string | null;
   isPrimary: boolean;
+  // Renseigné quand les données personnelles du contact ont été effacées
+  // (RGPD) : la fiche subsiste, vidée.
+  anonymizedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -503,8 +506,16 @@ export interface PublicQualificationSessionResponse {
   contactFirstName: string | null;
   serviceName: string | null;
   requestReference: string;
+  // Langue dans laquelle s'adresser au prospect (langue de sa demande).
+  language: "fr" | "en";
   form: FormResponse;
   responses: Record<string, unknown>;
+}
+
+// Corps de POST /public/qualification/:token/submit : le prospect doit
+// avoir accepté le traitement de ses réponses.
+export interface SubmitPublicQualificationRequest {
+  consent: boolean;
 }
 
 // Élément de GET /requests/:id/timeline et GET /opportunities/:id/timeline
@@ -1064,6 +1075,79 @@ export interface ReportOverviewResponse {
   // `label` = OpportunityStatus / MissionStatus ; étapes vides absentes.
   opportunitiesByStage: ReportCount[];
   missionsByStatus: ReportCount[];
+}
+
+// ---- RGPD (section 66) ----
+
+// Réponse de GET /contacts/:id/personal-data : tout ce que la plateforme
+// détient sur la personne.
+export interface ContactPersonalDataExport {
+  exportedAt: string;
+  contact: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    position: string | null;
+    company: string | null;
+    createdAt: string;
+    anonymizedAt: string | null;
+  };
+  requests: {
+    reference: string;
+    subject: string;
+    message: string | null;
+    source: string;
+    language: string | null;
+    country: string | null;
+    status: string;
+    receivedAt: string;
+  }[];
+  messages: {
+    requestReference: string | null;
+    channel: string;
+    direction: string;
+    from: string | null;
+    to: string | null;
+    subject: string | null;
+    body: string;
+    date: string;
+  }[];
+  qualifications: {
+    requestReference: string | null;
+    form: string | null;
+    status: string;
+    completedAt: string | null;
+    consentAt: string | null;
+    consentVersion: string | null;
+    answers: { question: string; answer: unknown }[];
+  }[];
+  documents: {
+    requestReference: string | null;
+    name: string;
+    mimeType: string;
+    size: number;
+    uploadedAt: string;
+  }[];
+}
+
+// Réponse de POST /contacts/:id/anonymize.
+export interface ContactAnonymizationResponse {
+  contactId: string;
+  anonymizedAt: string;
+  erased: {
+    requests: number;
+    messages: number;
+    formResponses: number;
+    aiAnalyses: number;
+    notifications: number;
+    events: number;
+    documents: number;
+  };
+  // Fichiers dont la suppression du stockage a échoué (à purger).
+  filesRemaining: number;
 }
 
 // ---- Workflow Engine (sections 39, 45, 46) ----

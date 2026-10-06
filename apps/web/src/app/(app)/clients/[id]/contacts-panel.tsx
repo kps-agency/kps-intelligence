@@ -1,10 +1,17 @@
 "use client";
 
 import { Avatar, Badge, Button, Card, CardContent, CardHeader, CardTitle, ConfirmDialog, Skeleton } from "@kps/ui";
-import { Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, ShieldOff, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useHasPermission } from "@/components/current-user-context";
 import { ApiError } from "@/lib/api-client";
-import { useContactsByClient, useDeleteContact, useUpdateContact } from "@/lib/queries/contacts";
+import {
+  useAnonymizeContact,
+  useContactsByClient,
+  useDeleteContact,
+  useExportContactData,
+  useUpdateContact,
+} from "@/lib/queries/contacts";
 import { ContactFormDialog } from "./contact-form-dialog";
 
 export function ContactsPanel({
@@ -17,7 +24,34 @@ export function ContactsPanel({
   const contacts = useContactsByClient(clientId);
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
-  const [notice, setNotice] = useState<{ kind: "error"; text: string } | null>(null);
+  // RGPD : export et effacement, réservés aux administrateurs.
+  const canManagePrivacy = useHasPermission("privacy.manage");
+  const exportData = useExportContactData();
+  const anonymize = useAnonymizeContact();
+  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+
+  const onError = (fallback: string) => (error: unknown) =>
+    setNotice({ kind: "error", text: error instanceof ApiError ? error.message : fallback });
+
+  function handleExport(id: string, fullName: string) {
+    setNotice(null);
+    const fileName = `donnees-personnelles-${fullName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
+    exportData.mutate({ id, fileName }, { onError: onError("Échec de l'export.") });
+  }
+
+  function handleAnonymize(id: string) {
+    setNotice(null);
+    anonymize.mutate(id, {
+      onError: onError("Échec de l'anonymisation."),
+      onSuccess: (result) =>
+        setNotice({
+          kind: "success",
+          text: `Données personnelles effacées : ${result.erased.requests} demande(s), ${result.erased.messages} message(s), ${result.erased.formResponses} réponse(s) de formulaire, ${result.erased.documents} document(s).${
+            result.filesRemaining > 0 ? ` ${result.filesRemaining} fichier(s) restent à purger du stockage.` : ""
+          }`,
+        }),
+    });
+  }
 
   function handleSetPrimary(id: string) {
     setNotice(null);
@@ -62,7 +96,14 @@ export function ContactsPanel({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {notice && (
-          <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <p
+            role={notice.kind === "error" ? "alert" : "status"}
+            className={
+              notice.kind === "error"
+                ? "rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+                : "rounded-md bg-success/10 p-3 text-sm text-success"
+            }
+          >
             {notice.text}
           </p>
         )}
@@ -104,6 +145,7 @@ export function ContactsPanel({
                         Principal
                       </Badge>
                     )}
+                    {contact.anonymizedAt && <Badge variant="outline">Données effacées</Badge>}
                   </div>
                   {contact.position && (
                     <p className="text-sm text-muted-foreground">{contact.position}</p>
@@ -116,7 +158,39 @@ export function ContactsPanel({
                   )}
                 </div>
 
-                {canManage && (
+                {canManagePrivacy && !contact.anonymizedAt && (
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Exporter les données personnelles de ${fullName}`}
+                      disabled={exportData.isPending}
+                      onClick={() => handleExport(contact.id, fullName)}
+                    >
+                      <Download aria-hidden="true" />
+                    </Button>
+                    <ConfirmDialog
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Effacer les données personnelles de ${fullName}`}
+                        >
+                          <ShieldOff aria-hidden="true" />
+                        </Button>
+                      }
+                      title="Effacer les données personnelles ?"
+                      description={`Le nom, les coordonnées, les messages, les réponses aux formulaires et les documents de ${fullName} seront définitivement effacés, ainsi que le contenu de ses demandes. Les demandes, opportunités, devis et missions sont conservés. Cette action est irréversible.`}
+                      confirmLabel="Effacer définitivement"
+                      isConfirming={anonymize.isPending}
+                      onConfirm={() => handleAnonymize(contact.id)}
+                    />
+                  </div>
+                )}
+
+                {canManage && !contact.anonymizedAt && (
                   <div className="flex shrink-0 gap-1">
                     {!contact.isPrimary && (
                       <Button

@@ -1,3 +1,4 @@
+import type { ProspectLanguage } from "@kps/shared";
 import type { RenderedEmail } from "./qualification-email";
 
 // Email d'envoi d'un devis (section 51) : le PDF est en pièce jointe. Le
@@ -11,6 +12,8 @@ export interface QuoteEmailParams {
   companyName: string;
   // Message libre du commercial, ajouté au texte standard.
   message: string | null;
+  // Langue du prospect (section 65) ; français par défaut.
+  language?: ProspectLanguage;
 }
 
 function escapeHtml(value: string): string {
@@ -22,11 +25,23 @@ function escapeHtml(value: string): string {
 }
 
 export function renderQuoteEmail(params: QuoteEmailParams): RenderedEmail {
-  const greeting = params.contactFirstName ? `Bonjour ${params.contactFirstName},` : "Bonjour,";
-  const subject = `Devis ${params.reference} — ${params.title}`;
-  const validity = params.validUntil ? ` Il est valable jusqu'au ${params.validUntil}.` : "";
-  const intro = `Veuillez trouver en pièce jointe notre devis ${params.reference} pour « ${params.title} », d'un montant de ${params.total} TTC.${validity}`;
-  const closing = "Nous restons à votre disposition pour toute question.";
+  const english = params.language === "en";
+  const name = params.contactFirstName;
+  const greeting = english ? (name ? `Hello ${name},` : "Hello,") : name ? `Bonjour ${name},` : "Bonjour,";
+  const subject = english
+    ? `Quote ${params.reference} — ${params.title}`
+    : `Devis ${params.reference} — ${params.title}`;
+  const validity = !params.validUntil
+    ? ""
+    : english
+      ? ` It is valid until ${params.validUntil}.`
+      : ` Il est valable jusqu'au ${params.validUntil}.`;
+  const intro = english
+    ? `Please find attached our quote ${params.reference} for "${params.title}", for a total of ${params.total} including tax.${validity}`
+    : `Veuillez trouver en pièce jointe notre devis ${params.reference} pour « ${params.title} », d'un montant de ${params.total} TTC.${validity}`;
+  const closing = english
+    ? "We remain at your disposal for any questions."
+    : "Nous restons à votre disposition pour toute question.";
 
   const text = [greeting, intro, params.message, closing, params.companyName]
     .filter((part): part is string => !!part)
@@ -41,7 +56,7 @@ export function renderQuoteEmail(params: QuoteEmailParams): RenderedEmail {
     .join("\n                ");
 
   const html = `<!doctype html>
-<html lang="fr">
+<html lang="${english ? "en" : "fr"}">
   <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:32px 16px;">
       <tr>

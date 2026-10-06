@@ -19,6 +19,7 @@ import { MatchingModule } from "./matching/matching.module";
 import { MissionsModule } from "./missions/missions.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { OpportunitiesModule } from "./opportunities/opportunities.module";
+import { PrivacyModule } from "./privacy/privacy.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
 import { QualificationAnalysisModule } from "./qualification-analysis/qualification-analysis.module";
 import { QuotesModule } from "./quotes/quotes.module";
@@ -96,6 +97,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
     MissionsModule,
     DocumentsModule,
     ReportsModule,
+    PrivacyModule,
     TeamModule,
     NotificationsModule,
     AuthModule,

@@ -26,6 +26,7 @@ function toContactResponse(row: ContactWithClient): ContactResponse {
     whatsapp: row.whatsapp,
     position: row.position,
     isPrimary: row.is_primary,
+    anonymizedAt: row.anonymized_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

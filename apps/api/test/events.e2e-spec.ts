@@ -265,7 +265,7 @@ describe("Event Bus et timeline (intégration réelle)", () => {
       .put(`/api/v1/public/qualification/${token}/responses/budget`)
       .send({ value: 5000 })
       .expect(200);
-    await http().post(`/api/v1/public/qualification/${token}/submit`).expect(201);
+    await http().post(`/api/v1/public/qualification/${token}/submit`).send({ consent: true }).expect(201);
 
     // Nouveau lien après complétion, puis révocation.
     const second = await http()

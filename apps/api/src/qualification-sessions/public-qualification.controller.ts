@@ -1,8 +1,15 @@
 import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/public.decorator";
+import { IsBoolean, IsOptional } from "class-validator";
 import { SaveFormResponseDto } from "./dto/save-form-response.dto";
 import { QualificationSessionsService } from "./qualification-sessions.service";
+
+class SubmitPublicQualificationDto {
+  @IsOptional()
+  @IsBoolean({ message: "consent doit être un booléen." })
+  consent?: boolean;
+}
 
 // Page publique de qualification (sections 23-24 du prompt) : aucun
 // compte requis, résolution par token uniquement (jamais par id de
@@ -30,7 +37,7 @@ export class PublicQualificationController {
   }
 
   @Post(":token/submit")
-  submit(@Param("token") token: string) {
-    return this.sessionsService.submitPublic(token);
+  submit(@Param("token") token: string, @Body() dto: SubmitPublicQualificationDto) {
+    return this.sessionsService.submitPublic(token, dto.consent === true);
   }
 }

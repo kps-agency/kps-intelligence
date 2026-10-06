@@ -1,4 +1,6 @@
 import type {
+  ContactAnonymizationResponse,
+  ContactPersonalDataExport,
   ContactResponse,
   CreateContactRequest,
   PaginatedResponse,
@@ -75,6 +77,39 @@ export function useUpdateContact() {
         body: JSON.stringify(request),
       }),
     onSuccess: () => invalidateContacts(queryClient),
+  });
+}
+
+// RGPD : copie de toutes les données détenues sur le contact, enregistrée
+// en fichier JSON par le navigateur.
+export function useExportContactData() {
+  return useMutation({
+    mutationFn: async (contact: { id: string; fileName: string }) => {
+      const data = await apiFetch<ContactPersonalDataExport>(`/contacts/${contact.id}/personal-data`);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = contact.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
+// RGPD : effacement des données personnelles du contact et de ses demandes.
+export function useAnonymizeContact() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<ContactAnonymizationResponse>(`/contacts/${id}/anonymize`, { method: "POST" }),
+    onSuccess: () => {
+      invalidateContacts(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ["requests"] });
+      void queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      void queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
   });
 }
 

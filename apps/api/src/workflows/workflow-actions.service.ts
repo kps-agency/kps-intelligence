@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { prospectLanguage, type ProspectLanguage } from "@kps/shared";
 import { EventEntityType, EventType } from "@kps/types";
 import type { OpportunityStatus } from "@kps/types";
 import { toDbException } from "../common/db-error";
@@ -202,6 +203,7 @@ export class WorkflowActionsService {
       contactFirstName: await this.firstName(context.requestId, target.name),
       serviceName,
       qualificationUrl: session.qualificationUrl,
+      language: await this.language(context.requestId),
     };
 
     if (target.channel === "EMAIL") {
@@ -253,10 +255,11 @@ export class WorkflowActionsService {
     const serviceName = await this.serviceNameForSession(sessionId);
 
     const contactFirstName = await this.firstName(context.requestId, recipient.name);
+    const language = await this.language(context.requestId);
     const { externalMessageId, subject } = await this.sessionsService.withFreshLink(
       sessionId,
       async (qualificationUrl) => {
-        const params = { contactFirstName, serviceName, qualificationUrl };
+        const params = { contactFirstName, serviceName, qualificationUrl, language };
         if (channel === "EMAIL") {
           const sent = await this.emailService.sendQualificationReminderEmail(
             recipient.address,
@@ -357,6 +360,18 @@ export class WorkflowActionsService {
       .single();
     if (formError) throw toDbException(formError);
     return form.name;
+  }
+
+  // Section 65 : le prospect est servi dans la langue de sa demande.
+  private async language(requestId: string): Promise<ProspectLanguage> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from("requests")
+      .select("language")
+      .eq("id", requestId)
+      .single();
+    if (error) throw toDbException(error);
+    return prospectLanguage(data.language);
   }
 
   private async firstName(requestId: string, fallbackName: string | null): Promise<string | null> {

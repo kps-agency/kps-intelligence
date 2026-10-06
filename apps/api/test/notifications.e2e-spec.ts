@@ -311,7 +311,7 @@ describe("Notifications (intégration réelle)", () => {
         .put(`/api/v1/public/qualification/${token}/responses/companyName`)
         .send({ value: "ACME SA" })
         .expect(200);
-      await http().post(`/api/v1/public/qualification/${token}/submit`).expect(201);
+      await http().post(`/api/v1/public/qualification/${token}/submit`).send({ consent: true }).expect(201);
 
       const rows = await notificationsFor(requestId);
       expect(summary(rows, "FORM_COMPLETED")).toEqual(

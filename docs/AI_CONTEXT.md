@@ -1509,7 +1509,58 @@ part : notifications, liens de qualification, devis. Les tests qui envoient
 un email échouent pour cette seule raison. Ne pas enchaîner plusieurs
 régressions complètes dans la même journée avec ce compte.
 
-Prochaine étape : **Phase 22 — i18n & RGPD**.
+
+## Phase 22 — i18n & RGPD (sections 65, 66)
+
+> ⚠️ **Phase livrée en partie.** Fait : tout ce qui touche le **prospect**
+> (langue de ses communications, page publique FR/EN, consentement) et le
+> **RGPD** (export, effacement, audit). **Reste à faire** : l'interface
+> interne en anglais (toutes les pages de l'application sont encore en
+> français, sans sélecteur de langue), les notifications à l'équipe en
+> anglais (templates EN + libellés calculés par le dispatcher), le PDF du
+> devis en anglais, et la traduction du contenu des formulaires (les
+> questions restent dans la langue où elles ont été rédigées).
+
+**Langue du prospect (section 65)**
+- `prospectLanguage()` (`@kps/shared`) : `en` si la langue de la demande
+  commence par « en », sinon `fr`. La langue de la demande vient de
+  l'analyse IA, du formulaire du site (`locale`) ou d'une saisie manuelle —
+  **sans crédit Anthropic, les demandes entrantes par email ne sont pas
+  détectées** et restent en français.
+- Emails au prospect en FR / EN : qualification, relance, envoi de devis
+  (`email/templates/`). Le texte français reste celui de la spec. WhatsApp :
+  message texte FR / EN, et code de langue du template de relance.
+- Page publique `/qualification/[token]` : textes d'interface FR / EN
+  (`lib/qualification-copy.ts`), langue = celle de la demande (pas celle du
+  navigateur), bascule « English / Français » sans perte de saisie,
+  attribut `lang` correct.
+
+**RGPD (section 66)** — détail, périmètre de l'effacement et limites :
+`docs/SECURITY.md`, section « RGPD ».
+- Consentement obligatoire, daté et versionné (`CONSENT_VERSION`).
+- Export JSON et effacement d'un contact (`privacy/`, fonction SQL
+  `anonymize_contact`), réservés à `privacy.manage` (administrateurs),
+  tracés dans `audit_logs` — **premier usage réel de cette table**.
+- UI : sur la fiche client, deux actions par contact (exporter, effacer
+  avec confirmation), badge « Données effacées ».
+
+**Changement d'API à connaître** : `POST /public/qualification/:token/submit`
+exige `{consent: true}`. Toute intégration qui soumettrait le formulaire
+sans passer par la page publique doit l'envoyer.
+
+Tests : 5 unitaires (langue, textes FR / EN, échappement HTML) ; **8 e2e
+réels** (`privacy.e2e-spec.ts`) — langue de la page, consentement refusé
+puis enregistré, droits, export complet et tracé, effacement vérifié table
+par table et dans le stockage (plus aucune occurrence du nom, de l'email ou
+du téléphone), objets commerciaux conservés, audit sans donnée personnelle,
+409 au rejeu. Navigateur réel : **19 contrôles, axe sans violation** (page
+publique dans les deux langues, bascule, consentement, mobile, export
+téléchargé et relu, effacement avec annulation puis confirmation,
+observateur).
+
+Prochaine étape : finir l'i18n interne (voir l'encadré), ou **Phase 23 —
+Audit & observabilité** (étendre `audit_logs` aux autres actions sensibles,
+identifiants de corrélation dans les logs).
 
 ## Intégration des sites web (akoraweb) — demandes reçues par API
 

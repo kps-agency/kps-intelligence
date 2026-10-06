@@ -157,6 +157,8 @@ describe("Page publique de qualification (intégration réelle, sans authentific
         "contactFirstName",
         "expiresAt",
         "form",
+        // Langue dans laquelle afficher la page (Phase 22) : fr ou en, rien d'autre.
+        "language",
         "requestReference",
         "responses",
         "serviceName",
@@ -211,7 +213,7 @@ describe("Page publique de qualification (intégration réelle, sans authentific
     expect(saved.body.responses.companyName).toBe("Prospect Sàrl");
 
     const submitted = await http()
-      .post(`/api/v1/public/qualification/${token}/submit`)
+      .post(`/api/v1/public/qualification/${token}/submit`).send({ consent: true })
       .expect(201); // companyName seul suffit (seul champ requis) : succès direct
     expect(submitted.body.status).toBe("COMPLETED");
     expect(submitted.body.requestReference).toMatch(/^KPS-\d{4}-\d{5}$/);
@@ -221,7 +223,7 @@ describe("Page publique de qualification (intégration réelle, sans authentific
       .put(`/api/v1/public/qualification/${token}/responses/companyName`)
       .send({ value: "Autre" })
       .expect(400);
-    await http().post(`/api/v1/public/qualification/${token}/submit`).expect(400);
+    await http().post(`/api/v1/public/qualification/${token}/submit`).send({ consent: true }).expect(400);
 
     // La demande a avancé côté interne (RESPONSE_RECEIVED).
     const requestRow = await http()
@@ -270,7 +272,7 @@ describe("Page publique de qualification (intégration réelle, sans authentific
       .put(`/api/v1/public/qualification/${token}/responses/companyName`)
       .send({ value: "x" })
       .expect(400);
-    await http().post(`/api/v1/public/qualification/${token}/submit`).expect(400);
+    await http().post(`/api/v1/public/qualification/${token}/submit`).send({ consent: true }).expect(400);
   });
 
   it("un lien expiré (expiration forcée en base) passe EXPIRED et refuse toute écriture", async () => {

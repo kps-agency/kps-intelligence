@@ -161,3 +161,44 @@ audit logs, contrôle des fichiers, protection des liens publics.
 - **Clé de stockage** générée par le serveur
   (`<type>/<id objet>/<uuid>-<nom nettoyé>`) : le nom fourni par
   l'utilisateur n'est jamais utilisé comme chemin.
+
+## RGPD (Phase 22, section 66)
+
+| Principe | Mise en œuvre |
+|---|---|
+| **Consentement** | Sur la page publique, le prospect coche son accord avant d'envoyer ses réponses ; l'API refuse l'envoi sans lui (400). La date et la version du texte accepté (`CONSENT_VERSION`, `@kps/shared`) sont conservées sur la session de qualification. **Changer le texte = changer la version.** |
+| **Droit d'accès / portabilité** | `GET /contacts/:id/personal-data` : fiche, demandes et messages d'origine, échanges, réponses aux formulaires (question + réponse), consentements, liste des documents — en JSON. Bouton « Exporter » sur la fiche client. |
+| **Droit à l'effacement** | `POST /contacts/:id/anonymize` → fonction SQL `anonymize_contact` (une transaction) puis suppression des fichiers du stockage. Bouton « Effacer les données personnelles », avec confirmation. |
+| **Traçabilité** | Export et effacement écrivent dans `audit_logs` (qui, quand, IP, navigateur, compteurs) — sans recopier les données concernées. |
+| **Accès restreint** | Permission `privacy.manage`, réservée aux administrateurs. |
+| **Minimisation** | La page publique ne renvoie que le prénom du contact ; les notifications internes ne contiennent pas le message du prospect ; les liens de qualification ne sont jamais conservés en clair. |
+
+**Ce que l'effacement supprime** : nom, coordonnées et fonction du contact ;
+sujet et message de ses demandes (« Demande anonymisée ») ; tous ses
+échanges (emails, WhatsApp) ; ses réponses aux formulaires ; les analyses IA
+de ses demandes ; les notifications internes qui citent ces demandes ; les
+documents déposés sur ces demandes (lignes et fichiers) ; la description de
+l'opportunité (résumé de l'IA).
+
+**Ce qu'il conserve, et pourquoi** : la fiche contact vidée (marquée
+`anonymized_at`), les demandes, opportunités, devis, missions et leur
+historique d'étapes. Ce sont des pièces de l'activité de l'agence ; elles ne
+permettent plus d'identifier la personne. La fiche du **client** (la société)
+n'est pas touchée.
+
+**Limites connues** (à traiter avant d'invoquer la conformité) :
+- **Titres** des opportunités, devis et missions : repris du sujet de la
+  demande à leur création, ils ne sont pas réécrits. Un sujet contenant un
+  nom de personne y subsisterait.
+- **Devis envoyés** : les versions figées (`quote_versions.snapshot`)
+  gardent le nom de l'interlocuteur — ce sont des pièces commerciales.
+- **Documents** déposés ailleurs que sur la demande (opportunité, mission,
+  client) : non supprimés automatiquement.
+- **Durée de conservation** : aucune purge automatique. Politique à fixer
+  par l'agence (ex. prospects sans suite depuis 3 ans), puis à automatiser.
+- **Sauvegardes** Supabase : les données effacées y subsistent jusqu'à leur
+  rotation.
+- La suppression simple d'un contact (`DELETE /contacts/:id`, existante)
+  retire la fiche mais **pas** ses demandes ni ses échanges : pour une
+  demande d'effacement RGPD, utiliser l'anonymisation.
+

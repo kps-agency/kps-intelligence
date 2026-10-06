@@ -31,9 +31,10 @@ export function useSavePublicFormResponse(token: string) {
 export function useSubmitPublicQualification(token: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () =>
+    mutationFn: (consent: boolean) =>
       publicApiFetch<PublicQualificationSessionResponse>(`/public/qualification/${token}/submit`, {
         method: "POST",
+        body: JSON.stringify({ consent }),
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(["public-qualification", token], updated);
